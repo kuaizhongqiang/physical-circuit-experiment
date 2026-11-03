@@ -101,11 +101,15 @@ wasm 内存模型与 C ABI 一致：用 `WebAssembly.Memory` 的 `buffer` 建 `D
 ## 5 交付脚本
 
 ```
-scripts/build.ps1      # cargo build (dll) + wasm-pack (web) + 拷贝到目标工程
-scripts/copy-unity.ps1 # 只拷 DLL 与 C# 到指定 Unity 工程（不碰 .meta）
+scripts/build.mjs   # cargo build (core/dll/wasm) + 把 wasm 拷到 bindings/web/pkg/
+scripts/compare.mjs # 双端比对：wasm 侧逐条核对 fixtures 的期望值
+scripts/serve.mjs   # 本地静态服务（演示页要 http:// 才能 fetch wasm 与 fixture）
 ```
 
-脚本必须 **UTF-8 with BOM**（`AGENT.md` §2）；不做 `git add`，产物不入库（`architecture.md` §6）。
+- Node 脚本（`node scripts/xxx.mjs`），跨平台，不依赖 wasm-pack（wasm 走手写 C ABI ＋ 直载）。
+- 产物不入库（`architecture.md` §6）；不做 `git add`。
+- 演示页打开方式：`node scripts/serve.mjs` → `http://localhost:8080/bindings/web/demo.html`。**不要用 `file://` 直接打开**（fetch 会被 CORS 挡）。
+- Unity 侧 DLL 落位：`target/x86_64-pc-windows-msvc/release/pcx_circuit.dll` → `<工程>/Assets/Plugins/x86_64/`，`.meta` 交给 Unity 生成。
 
 ## 6 双端等价的验证入口
 

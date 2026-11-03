@@ -97,8 +97,15 @@ checkIds("RECORD.md", /^\|\s*`?(R-\d{2})`?\s*\|/, "提交登记编号");
         fail(`fixtures/${f}`, `JSON 解析失败：${e.message}`);
         continue;
       }
-      for (const k of ["case", "baseline_source", "devices", "wires", "expect"]) {
+      for (const k of ["case", "baseline_source", "devices", "wires"]) {
         if (!(k in j)) fail(`fixtures/${f}`, `缺必填字段 ${k}`);
+      }
+      // 期望值可以写在顶层 expect，也可以按 cases 分条（C1…C10 现行写法）
+      if (!("expect" in j) && !("cases" in j)) {
+        fail(`fixtures/${f}`, "缺期望值：需要 expect 或 cases");
+      }
+      if ("cases" in j && (!Array.isArray(j.cases) || j.cases.length === 0)) {
+        fail(`fixtures/${f}`, "cases 必须是非空数组");
       }
       if (Array.isArray(j.devices)) {
         const pe = j.devices.filter((d) => (d.kind || "").toUpperCase() === "PE").length;

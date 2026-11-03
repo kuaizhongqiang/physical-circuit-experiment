@@ -1,0 +1,45 @@
+{
+  "case": "C6",
+  "baseline_source": "自建",
+  "note": "延迟启动：KT 线圈带电，55-56 延时闭合后电机启动。",
+  "strict_reference": true,
+  "config": { "v_line": 380, "freq_hz": 50 },
+
+  "devices": [
+    { "ref": "P1", "kind": "POWER", "id": 1, "terminal_base": 0, "params": [380, 50, 0.001, 1, 0, 0, 0, 0] },
+    { "ref": "KT1", "kind": "KT", "id": 2, "terminal_base": 4, "params": [15000, 10000, 0.02, 0.012, 0.001, 3000, 0, 0] },
+    { "ref": "KM1", "kind": "KM", "id": 3, "terminal_base": 10, "aux": 5, "params": [12000, 8000, 0.02, 0.012, 0.001, 0, 0, 0] },
+    { "ref": "M1", "kind": "M", "id": 4, "terminal_base": 22, "params": [40, 18, 0, 0, 0, 0, 0, 0] },
+    { "ref": "PE1", "kind": "PE", "id": 5, "terminal_base": 28, "params": [0, 0, 0, 0, 0, 0, 0, 0] }
+  ],
+
+  "wires": [
+    { "a": 0, "b": 12, "note": "L1 → KM1.1" },
+    { "a": 1, "b": 14, "note": "L2 → KM1.3" },
+    { "a": 2, "b": 16, "note": "L3 → KM1.5" },
+    { "a": 13, "b": 22, "note": "KM1.2 → M1.U1" },
+    { "a": 15, "b": 23, "note": "KM1.4 → M1.V1" },
+    { "a": 17, "b": 24, "note": "KM1.6 → M1.W1" },
+    { "a": 25, "b": 26, "note": "星点 U2-V2" },
+    { "a": 26, "b": 27, "note": "星点 V2-W2" },
+    { "a": 3, "b": 28, "note": "P1.N → PE1" },
+    { "a": 0, "b": 4, "note": "L1 → KT1.A1" },
+    { "a": 5, "b": 1, "note": "KT1.A2 → L2" },
+    { "a": 0, "b": 6, "note": "L1 → KT1.55" },
+    { "a": 7, "b": 10, "note": "KT1.56 → KM1.A1" },
+    { "a": 11, "b": 1, "note": "KM1.A2 → L2" }
+  ],
+
+  "cases": [
+    {
+      "name": "KT 未到点（2990 ms）：电机无电",
+      "set": { "KT1": { "elapsed_ms": 2990 } },
+      "expect": { "M1:0": { "i_rms": 0.0, "tol_abs": 0.001 } }
+    },
+    {
+      "name": "KT 到点（3000 ms）：5.02 A",
+      "set": { "KT1": { "elapsed_ms": 3000 } },
+      "expect": { "M1:0": { "i_rms": 5.0156, "tol": 0.01 } }
+    }
+  ]
+}

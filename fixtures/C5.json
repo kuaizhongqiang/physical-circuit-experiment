@@ -1,0 +1,73 @@
+{
+  "case": "C5",
+  "baseline_source": "自建",
+  "note": "星三角降压启动：KM1 主、KM2 星、KM3 三角，KT 切换。启动线电流约为运行线电流 1/3。",
+  "strict_reference": true,
+  "config": { "v_line": 380, "freq_hz": 50 },
+
+  "devices": [
+    { "ref": "P1", "kind": "POWER", "id": 1, "terminal_base": 0, "params": [380, 50, 0.001, 1, 0, 0, 0, 0] },
+    { "ref": "KM1", "kind": "KM", "id": 2, "terminal_base": 4, "aux": 5, "params": [12000, 8000, 0.02, 0.012, 0.001, 0, 0, 0] },
+    { "ref": "KM2", "kind": "KM", "id": 3, "terminal_base": 16, "aux": 5, "params": [12000, 8000, 0.02, 0.012, 0.001, 0, 0, 0] },
+    { "ref": "KM3", "kind": "KM", "id": 4, "terminal_base": 28, "aux": 5, "params": [12000, 8000, 0.02, 0.012, 0.001, 0, 0, 0] },
+    { "ref": "KT1", "kind": "KT", "id": 5, "terminal_base": 40, "params": [15000, 10000, 0.02, 0.012, 0.001, 3000, 0, 0] },
+    { "ref": "M1", "kind": "M", "id": 6, "terminal_base": 46, "params": [40, 18, 0, 0, 0, 0, 0, 0] },
+    { "ref": "PE1", "kind": "PE", "id": 7, "terminal_base": 52, "params": [0, 0, 0, 0, 0, 0, 0, 0] }
+  ],
+
+  "wires": [
+    { "a": 0, "b": 6, "note": "L1 → KM1.1" },
+    { "a": 1, "b": 8, "note": "L2 → KM1.3" },
+    { "a": 2, "b": 10, "note": "L3 → KM1.5" },
+    { "a": 7, "b": 46, "note": "KM1.2 → M1.U1" },
+    { "a": 9, "b": 47, "note": "KM1.4 → M1.V1" },
+    { "a": 11, "b": 48, "note": "KM1.6 → M1.W1" },
+    { "a": 18, "b": 20, "note": "KM2 星点：1-3 短接" },
+    { "a": 20, "b": 22, "note": "KM2 星点：3-5 短接" },
+    { "a": 19, "b": 49, "note": "KM2.2 → M1.U2" },
+    { "a": 21, "b": 50, "note": "KM2.4 → M1.V2" },
+    { "a": 23, "b": 51, "note": "KM2.6 → M1.W2" },
+    { "a": 30, "b": 49, "note": "KM3.1 → M1.U2" },
+    { "a": 31, "b": 47, "note": "KM3.2 → M1.V1（Δ：U2-V1）" },
+    { "a": 32, "b": 50, "note": "KM3.3 → M1.V2" },
+    { "a": 33, "b": 48, "note": "KM3.4 → M1.W1（Δ：V2-W1）" },
+    { "a": 34, "b": 51, "note": "KM3.5 → M1.W2" },
+    { "a": 35, "b": 46, "note": "KM3.6 → M1.U1（Δ：W2-U1）" },
+    { "a": 3, "b": 52, "note": "P1.N → PE1" },
+    { "a": 0, "b": 40, "note": "L1 → KT1.A1" },
+    { "a": 41, "b": 1, "note": "KT1.A2 → L2" },
+    { "a": 0, "b": 4, "note": "L1 → KM1.A1（主接触器常吸）" },
+    { "a": 5, "b": 1, "note": "KM1.A2 → L2" },
+    { "a": 0, "b": 44, "note": "L1 → KT1.67（延时断开常闭）" },
+    { "a": 45, "b": 16, "note": "KT1.68 → KM2.A1（星接触器）" },
+    { "a": 17, "b": 1, "note": "KM2.A2 → L2" },
+    { "a": 0, "b": 42, "note": "L1 → KT1.55（延时闭合常开）" },
+    { "a": 43, "b": 28, "note": "KT1.56 → KM3.A1（三角接触器）" },
+    { "a": 29, "b": 1, "note": "KM3.A2 → L2" }
+  ],
+
+  "cases": [
+    {
+      "name": "启动期（KT 未到点）：星形，线电流 5.02 A",
+      "set": { "KT1": { "elapsed_ms": 0 } },
+      "expect": {
+        "M1:0": { "i_rms": 5.0156, "tol": 0.01 },
+        "KM1:3": { "i_rms": 5.0156, "tol": 0.01 }
+      }
+    },
+    {
+      "name": "切换后（KT 到点）：三角形，相 8.66 A / 线 15.01 A",
+      "set": { "KT1": { "elapsed_ms": 3100 } },
+      "expect": {
+        "M1:0": { "i_rms": 8.6646, "tol": 0.01 },
+        "KM1:3": { "i_rms": 15.007, "tol": 0.01 }
+      }
+    },
+    {
+      "name": "反例：星点与三角同时接通（相间短路）",
+      "set": { "KT1": { "elapsed_ms": 0 } },
+      "add_wires": [[0, 28]],
+      "expect_code": "E_SHORT_CIRCUIT"
+    }
+  ]
+}

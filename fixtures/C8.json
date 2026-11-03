@@ -1,0 +1,49 @@
+{
+  "case": "C8",
+  "baseline_source": "自建",
+  "note": "能耗制动：定子脱离三相后经制动电阻闭合成回路。无源回路电流恒为 0（docs/verification.md §5 已知不覆盖）。",
+  "strict_reference": true,
+  "config": { "v_line": 380, "freq_hz": 50 },
+
+  "devices": [
+    { "ref": "P1", "kind": "POWER", "id": 1, "terminal_base": 0, "params": [380, 50, 0.001, 1, 0, 0, 0, 0] },
+    { "ref": "KM1", "kind": "KM", "id": 2, "terminal_base": 4, "aux": 5, "params": [12000, 8000, 0.02, 0.012, 0.001, 0, 0, 0] },
+    { "ref": "R1", "kind": "R", "id": 3, "terminal_base": 16, "params": [30, 0, 0, 0, 0, 0, 0, 0] },
+    { "ref": "M1", "kind": "M", "id": 4, "terminal_base": 18, "params": [40, 18, 0, 0, 0, 0, 0, 0] },
+    { "ref": "PE1", "kind": "PE", "id": 5, "terminal_base": 24, "params": [0, 0, 0, 0, 0, 0, 0, 0] }
+  ],
+
+  "wires": [
+    { "a": 0, "b": 6, "note": "L1 → KM1.1" },
+    { "a": 1, "b": 8, "note": "L2 → KM1.3" },
+    { "a": 2, "b": 10, "note": "L3 → KM1.5" },
+    { "a": 7, "b": 18, "note": "KM1.2 → M1.U1" },
+    { "a": 9, "b": 19, "note": "KM1.4 → M1.V1" },
+    { "a": 11, "b": 20, "note": "KM1.6 → M1.W1" },
+    { "a": 21, "b": 22, "note": "星点 U2-V2" },
+    { "a": 22, "b": 23, "note": "星点 V2-W2" },
+    { "a": 3, "b": 24, "note": "P1.N → PE1" },
+    { "a": 16, "b": 18, "note": "R1.1 → M1.U1（制动电阻投入）" },
+    { "a": 17, "b": 19, "note": "R1.2 → M1.V1" },
+    { "a": 0, "b": 4, "note": "L1 → KM1.A1" },
+    { "a": 5, "b": 1, "note": "KM1.A2 → L2" }
+  ],
+
+  "cases": [
+    {
+      "name": "运行：5.02 A",
+      "expect": { "M1:0": { "i_rms": 5.0156, "tol": 0.01 } },
+      "expect_devices": { "KM1": { "coil_i_rms": 0.026348, "tol": 0.02 } }
+    },
+    {
+      "name": "制动：主接触器释放、制动电阻投入，定子与电源断开（电流恒 0）",
+      "drop_wires": [11, 12],
+      "expect_code": "OK",
+      "expect": {
+        "M1:0": { "i_rms": 0.0, "tol_abs": 0.001 },
+        "R1:0": { "i_rms": 0.0, "tol_abs": 0.001 }
+      },
+      "expect_devices": { "KM1": { "coil_i_rms": 0.0, "tol_abs": 0.0001 } }
+    }
+  ]
+}

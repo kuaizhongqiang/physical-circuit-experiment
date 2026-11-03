@@ -19,8 +19,8 @@
 | `devices[]` | ✅ | `ref`（位号，仅供显示）/ `kind` / `id` / `terminal_base` / `aux` / `params[8]` |
 | `wires[]` | ✅ | `{a, b}` 接点 id |
 | `requests[]` | 可选 | 按需查询的接点 / 器件 id |
-| `steps[]` | 可选 | 时序操作序列（改 `state_bits` / `elapsed_ms` / `rpm`），每个 step 带自己的 `expect` |
-| `expect` | ✅ | 形如 `{ "终端名": { "i_rms": 5.016, "tol": 0.01 } }`；`tol` 为**相对**容差 |
+| `cases[]` | ✅ | 每个 case：`name` / `set`（按位号覆盖 `state_bits`·`flags`·`elapsed_ms`·`rpm`）/ `add_wires`·`drop_wires` / `expect_code` / `expect` / `expect_devices` |
+| `expect` | ✅ | 键形如 `"M1:0"`（位号 + 局部接点序号），值 `{ "i_rms": 5.016, "tol": 0.01 }`；`tol` 为**相对**容差，小量用 `tol_abs` |
 
 **硬性约定**：
 

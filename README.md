@@ -46,42 +46,55 @@ Unity 工程里用 C# 做拓扑电路计算踩过坑，但问题不在语言 —
 
 | 项 | 状态 |
 |---|---|
-| 工程口径 | **26 条已拍板**（编号至 D-20261103-27，[`DECISION.md`](DECISION.md)），待拍板 0 |
+| 工程口径 | **27 条已拍板**（编号至 D-20261103-28，[`DECISION.md`](DECISION.md)），待拍板 0 |
 | 工程文档 | **9 份首版完成**（[`docs/README.md`](docs/README.md)） |
-| 代码 | 未开始 —— 从 **M0** 起（[`docs/roadmap.md`](docs/roadmap.md)） |
-| 里程碑 | M0 骨架 → M1 内核最小切片 → M2 案例铺满 → M3 双端 → M4 演示页 → M5 收口 |
+| 内核 | **已落地**：15 类器件、相量 MNA、开关迭代、短路拓扑预检；10 份 fixture / 28 个 case 全绿 |
+| 双端 | DLL 与 wasm 均产出；wasm 侧 28 个 case 与 fixture 期望逐条一致 |
+| 演示页 | 已实现（Canvas 2D，C3 两地控制），**待人工验收** D-1…D-14（[`docs/demo.md`](docs/demo.md) §10） |
+| 里程碑 | M0–M4 完成；剩 **M5** 收口（[`docs/roadmap.md`](docs/roadmap.md)） |
 
 ## 目录
 
 ```
-AGENT.md            agent 唯一手册（纪律与索引）
+crates/core/        计算内核（无 IO、无 unsafe、无时钟）
+crates/cabi/        C ABI 边界 → pcx_circuit.dll（Unity P/Invoke）
+crates/wasm/        wasm32 入口（手写 C ABI，不依赖 wasm-pack）
+bindings/csharp/    Unity 四件套（DLL 落位 / 接口 / 样例 / 文档）
+bindings/web/       PCX.js 门面 ＋ Canvas 2D 演示页
+fixtures/           C1…C10 网表 ＋ 期望值（双端共用的判据）
+scripts/            build / compare / serve
 docs/               工程内容事实源（9 份设计文档）
 .agent/             agent 操作目录（流程 / 技能脚本 / 样例 / 踩坑笔记）
 .github/            CI 与 issue、PR 模板
-TODO.md             待办与待拍板台账
-DECISION.md         已拍板口径台账
-RECORD.md           已提交台账
+AGENT.md            agent 唯一手册（纪律与索引）
+TODO.md / DECISION.md / RECORD.md   三台账
 LICENSE             MIT
 ```
 
-代码落地后会多出：`crates/{core,cabi,wasm}`、`bindings/{csharp,web}`、`fixtures/`、`scripts/`。
-
 ## 快速开始
 
-当前仓库只有文档与工具脚本，**还没有可编译的代码**。现在能跑的两条：
-
 ```bash
-# 校验文档地图、台账编号、AGENT 索引是否自洽（CI 第一个 job 也跑它）
-node .agent/skills/doc-guard/check.mjs
+# 内核测试：单测 + 10 份 fixture / 28 个 case
+cargo test --workspace
 
-# 预览会用 gh 建哪些标签 / 里程碑 / issue（不写远端）
-node .agent/skills/gh-plan/apply.mjs --dry-run
+# 产出两端：pcx_circuit.dll 与 wasm（并拷到 bindings/web/pkg/）
+node scripts/build.mjs
+
+# 双端比对：wasm 侧逐条核对 fixture 期望值
+node scripts/compare.mjs
+
+# 演示页（必须走 http，别用 file://）
+node scripts/serve.mjs   # → http://localhost:8080/bindings/web/demo.html
+
+# C# 绑定编译校验
+dotnet build bindings/csharp -v q
+
+# 文档与台账自洽（CI 第一个 job 也跑它）
+node .agent/skills/doc-guard/check.mjs
 ```
 
-两者都零依赖，Node ≥ 18。构建命令（`cargo build` / `cargo test` / `wasm-pack build`）在 M0 落地后
-才会写进 [`AGENT.md`](AGENT.md) §4 —— 在此之前不写未验证的命令。
-
-环境要求（M0 起）：Rust 1.95+，Windows 目标 `x86_64-pc-windows-msvc`；Web 端需要 `wasm32-unknown-unknown` 与 `wasm-pack`。
+环境：Rust 1.95+（目标 `x86_64-pc-windows-msvc` ＋ `wasm32-unknown-unknown`）、Node ≥ 18；C# 校验需 .NET SDK。
+**不需要 wasm-pack** —— wasm 走手写 C ABI ＋ `WebAssembly.instantiate`。
 
 ## 怎么读这个仓库
 
