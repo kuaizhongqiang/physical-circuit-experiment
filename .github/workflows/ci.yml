@@ -1,9 +1,10 @@
 name: ci
 
 on:
+  # 不限定分支：功能分支也立刻跑，PR 上才看得到 check
   push:
-    branches: [main]
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
 
 concurrency:
