@@ -1,0 +1,48 @@
+name: 任务
+description: 里程碑内的一个可验收任务（对应 TODO 的 T-NN）
+title: "[M0] "
+labels: ["area/core"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        提任务前先读 `docs/roadmap.md` 的里程碑与门禁。任务不是"做什么"，是"做完怎么判"。
+  - type: input
+    id: todo-ref
+    attributes:
+      label: 对应 TODO 编号
+      description: 如 `T-09`；没有就留空，并在描述里说明为什么不进 TODO
+      placeholder: T-09
+  - type: textarea
+    id: goal
+    attributes:
+      label: 目标（一句话）
+      description: 完成后仓库里多了什么可验证的东西
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 验收判据
+      description: 可执行、可判真假。优先写"跑什么命令得到什么结果"
+      placeholder: |
+        - `cargo test` 全绿
+        - C3 网表 M1 每相 5.02 A（容差 1%）
+    validations:
+      required: true
+  - type: textarea
+    id: docs
+    attributes:
+      label: 涉及文档
+      description: 按"先改契约再改实现"列出需要同批修改的文档
+      placeholder: |
+        - docs/solver.md §5
+        - docs/api.md §2.5
+  - type: dropdown
+    id: redline
+    attributes:
+      label: 是否触碰红线口径
+      description: 见 `AGENT.md` §2
+      options:
+        - 否
+        - 是（已在 issue 内说明如何遵守）

@@ -1,0 +1,47 @@
+name: 缺陷
+description: 计算结果、绑定层或演示页的异常
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        报缺陷先分清是**算错**还是**显示错**，两者的定位路径完全不同。
+  - type: dropdown
+    id: layer
+    attributes:
+      label: 出问题的层
+      options:
+        - 内核（core，计算/迭代/诊断）
+        - C ABI（cabi，结构体/错误码）
+        - C# 绑定或 Unity 样例
+        - wasm 绑定或 Web 接口
+        - 演示页（demo）
+        - 文档与实际不符
+    validations:
+      required: true
+  - type: input
+    id: case
+    attributes:
+      label: 涉及案例 / 网表
+      description: 如 C3、`fixtures/C5.json`，或"手动接线"
+  - type: textarea
+    id: repro
+    attributes:
+      label: 复现步骤
+      description: 尽量写成可脚本化的步骤；不要只贴截图
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望 vs 实际
+      description: 期望值必须给出出处（`verification.md` 哪条断言 / 哪份教材）。
+    validations:
+      required: true
+  - type: textarea
+    id: checks
+    attributes:
+      label: 已排除的可能
+      description: |
+        对照 `solver.md` §1 的五个根因逐条说明是否已排除，避免把"模型错"当成"实现错"。

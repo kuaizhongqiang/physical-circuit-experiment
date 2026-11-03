@@ -1,0 +1,51 @@
+# ── Rust ────────────────────────────────────────────
+/target/
+**/target/
+*.rs.bk
+*.profraw
+
+# ── 构建产物（本仓库只放源码与脚本，产物不入库）──────
+/dist/
+/bindings/web/pkg/
+*.dll
+*.wasm
+*.pdb
+*.lib
+*.exp
+*.ilk
+*.obj
+
+# ── .NET / Unity ────────────────────────────────────
+bin/
+obj/
+*.csproj.user
+*.userprefs
+*.pidb
+*.booproj
+Library/
+Temp/
+Logs/
+UserSettings/
+MemoryCaptures/
+*.unitypackage
+
+# ── Node ────────────────────────────────────────────
+node_modules/
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-store/
+
+# ── 编辑器 / OS ─────────────────────────────────────
+.vs/
+.idea/
+.vscode/
+*.swp
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# ── 临时 ────────────────────────────────────────────
+*.tmp
+*.log
+*.bak

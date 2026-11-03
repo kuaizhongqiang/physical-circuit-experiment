@@ -1,0 +1,49 @@
+name: 待拍板口径
+description: 需要负责人定口径才能继续的事（对应 TODO §1 的 P-NN）
+title: "[decision] "
+labels: ["decision"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        纪律：AI **不得**自行选一个口径继续写。未拍板的项不进 `DECISION.md`；
+        拍板后同步删掉 `TODO.md` §1 对应条目。
+  - type: textarea
+    id: question
+    attributes:
+      label: 要定的是什么
+      description: 一句话说清"定完就能继续做哪一步"
+    validations:
+      required: true
+  - type: textarea
+    id: options
+    attributes:
+      label: 候选与代价
+      description: 每案写清「做法 / 好处 / 代价」，不要只给结论
+      placeholder: |
+        A …（好处：… 代价：…）
+        B …（好处：… 代价：…）
+    validations:
+      required: true
+  - type: textarea
+    id: recommend
+    attributes:
+      label: 我方倾向与理由
+    validations:
+      required: true
+  - type: textarea
+    id: impact
+    attributes:
+      label: 影响面
+      description: 会改哪些文档 / 代码 / 案例；不定会阻塞哪个里程碑
+      placeholder: |
+        - docs/solver.md §4
+        - docs/api.md §2.5
+        - 阻塞 M1 门禁 G1
+    validations:
+      required: true
+  - type: textarea
+    id: if-blocked
+    attributes:
+      label: 若暂不拍板，能先做什么
+      description: 帮负责人判断这条到底有多急

@@ -1,0 +1,199 @@
+{
+  "labels": [
+    { "name": "area/core", "color": "1d76db", "description": "计算内核 core" },
+    { "name": "area/cabi", "color": "0e8a16", "description": "C ABI 边界" },
+    { "name": "area/csharp", "color": "5319e7", "description": "Unity / C# 绑定" },
+    { "name": "area/wasm", "color": "b60205", "description": "wasm 与 Web 绑定" },
+    { "name": "area/web", "color": "d93f0b", "description": "演示页" },
+    { "name": "area/docs", "color": "0075ca", "description": "文档与台账" },
+    { "name": "area/ci", "color": "8b8b8b", "description": "构建 / CI / 工具链" },
+    { "name": "gate", "color": "f9d0c4", "description": "里程碑门禁" },
+    { "name": "contract", "color": "fbca04", "description": "契约变更（api / domain-model）" },
+    { "name": "decision", "color": "c2e0c6", "description": "待拍板口径" }
+  ],
+  "milestones": [
+    { "title": "M0 骨架与工具链", "description": "workspace 三 crate ＋ .gitignore ＋ 构建脚本，三条命令真跑通。门禁 G0，判据见 docs/roadmap.md §3。" },
+    { "title": "M1 内核最小垂直切片", "description": "只跑 C3 两地控制，把 netlist→union→refpoint→device→mna→switch_iter 全链路打通。门禁 G1。" },
+    { "title": "M2 器件与案例铺满", "description": "15 类器件全实现 ＋ 短路预检 ＋ 诊断 ＋ fixtures C1…C10 与反例。门禁 G2。" },
+    { "title": "M3 双端打通", "description": "C ABI 定稿 ＋ C# 四件套 ＋ wasm 封装 ＋ 三宿主字节一致。门禁 G3。" },
+    { "title": "M4 演示页", "description": "Canvas 2D 演示页（只做 C3），含悬停五行数据与清空全部导线。门禁 G4，判据见 docs/demo.md §10。§10.1。" },
+    { "title": "M5 交付收口", "description": "AGENT.md §4 回填实测命令、三份 README、台账齐账。门禁 G5。" },
+    { "title": "二期", "description": "本期明确不做、后续再上的能力。见 docs/roadmap.md §6。" }
+  ],
+  "issues": [
+    {
+      "title": "[M0] 忽略规则与 Web 工具链",
+      "milestone": "M0 骨架与工具链",
+      "labels": ["area/ci"],
+      "body": "**目标**：`.gitignore` 覆盖全部产物；本机补装 wasm 目标与 `wasm-pack`。\n\n**验收**\n- [ ] `git status --short` 不出现 `target/`、`bindings/web/pkg/`、`dist/`、`*.dll`、`*.wasm`、`node_modules/`、C# `bin/ obj/`\n- [ ] `rustup target list --installed` 含 `wasm32-unknown-unknown`\n- [ ] `wasm-pack --version` 有输出\n\n**文档**：`docs/architecture.md` §6、`.agent/workflows/05-release.md`\n**TODO**：T-01、T-03"
+    },
+    {
+      "title": "[M0] 搭建 Rust workspace 骨架",
+      "milestone": "M0 骨架与工具链",
+      "labels": ["area/core"],
+      "body": "**目标**：`crates/{core,cabi,wasm}` ＋ `bindings/{csharp,web}` ＋ `fixtures/` ＋ `scripts/` 落地，一个空的 `pcx_solve` 导出 ＋ 一个恒等测试。\n\n**验收**\n- [ ] `cargo build -p pcx-cabi --release --target x86_64-pc-windows-msvc` 产出 `pcx_circuit.dll`\n- [ ] `cargo test` 全绿\n- [ ] `wasm-pack build crates/wasm --target web` 产出 `pkg/`\n- [ ] `pcx_abi_version()` 返回 1\n\n**文档**：`docs/architecture.md` §2 §3、`docs/api.md` §4\n**TODO**：T-07"
+    },
+    {
+      "title": "[M0] CI 首次跑通（门禁 G0）",
+      "milestone": "M0 骨架与工具链",
+      "labels": ["area/ci", "gate"],
+      "body": "**目标**：`.github/workflows/ci.yml` 三个 job（guard / rust / wasm）在 push 后能跑完。\n\n**验收**\n- [ ] `guard` 真跑 `doc-guard`，失败即红\n- [ ] `rust` 在 workspace 就绪后跑 fmt / clippy `-D warnings` / test / release build\n- [ ] `wasm` 在 `crates/wasm` 就绪后跑 `wasm-pack build`\n- [ ] 未就绪时只输出 notice（预期行为，不算失败）\n\n**判据**：`docs/roadmap.md` §3 门禁 G0\n**TODO**：T-13（首次 RECORD 登记同批做）"
+    },
+    {
+      "title": "[M1] core::consts 落地 N-01…N-12 与三层覆盖",
+      "milestone": "M1 内核最小垂直切片",
+      "labels": ["area/core", "contract"],
+      "body": "**目标**：`solver.md` §5 的 12 个常量落成代码，并实现三层覆盖（`consts` 缺省 → `POWER` 器件参数 → 网表全局 `SolverConfig`）。\n\n**验收**\n- [ ] 常量逐项编号与 `solver.md` §5 表一一对应（注释里带 `N-xx`）\n- [ ] 覆盖优先级有单测：三层各给不同值时最高层生效\n- [ ] `f32` 零出现（`cargo clippy` ＋ 代码审查）\n\n**文档**：`docs/solver.md` §5\n**TODO**：T-08"
+    },
+    {
+      "title": "[M1] 网表模型、接点编号与等势点合并",
+      "milestone": "M1 内核最小垂直切片",
+      "labels": ["area/core"],
+      "body": "**目标**：`netlist` ＋ `union` 两个模块：接点按器件序稳定编号、并查集合并导线与 `TB`、按最小接点 id 重排等势点。\n\n**验收**\n- [ ] 接点 id = `terminal_base + 序号`，与 `pcx_terminal_count` 相符\n- [ ] 打乱 `wires` 顺序，等势点编号与结果不变\n- [ ] 闭合触点**不参与**合并（`domain-model.md` §3）\n- [ ] 越界 / 重复 id 分别返回 `E_TERMINAL_RANGE` / `E_DUPLICATE_ID`\n\n**文档**：`docs/domain-model.md` §1 §3、`docs/solver.md` §3\n**TODO**：T-09"
+    },
+    {
+      "title": "[M1] 连通分量三分类与参考点两档严格度",
+      "milestone": "M1 内核最小垂直切片",
+      "labels": ["area/core", "contract"],
+      "body": "**目标**：按有源 / 无源孤立 / 单接点分类；无源两类跳过求解并标 `FLOATING`；有源分量按 `STRICT_REFERENCE` 决定报错还是用 `POWER.N` 隐含参考。\n\n**验收**\n- [ ] 无 `PE`（严格模式）→ `E_NO_REFERENCE`，诊断带该分量的等势点列表\n- [ ] 同分量两个 `PE` → `E_MULTI_REFERENCE`\n- [ ] 宽松模式缺 `PE` → 成功 ＋ `W_IMPLICIT_REFERENCE`\n- [ ] 0 条导线时：`POWER` 分量用 `P.N` 参考，其余接点全 `0 V` ＋ `FLOATING`，**不报 error**\n\n**文档**：`docs/solver.md` §4、`docs/api.md` §2.5、`DECISION.md` D-20261103-25\n**TODO**：T-09"
+    },
+    {
+      "title": "[M1] 8 类器件支路展开",
+      "milestone": "M1 内核最小垂直切片",
+      "labels": ["area/core"],
+      "body": "**目标**：`POWER` / `QS` / `SB` / `SQ` / `KM` / `FR` / `M` / `PE` 的接点表与支路展开（C3 所需）。\n\n**验收**\n- [ ] 表驱动测：每类器件 `terminal_count` 与 `domain-model.md` §2 逐项相符\n- [ ] 电机 3 条绕组支路，星/三角由外部接线决定（不改器件参数）\n- [ ] 触点闭合 = `r_contact`（`1e-3`），断开 = `r_open`（`1e9`）\n\n**文档**：`docs/domain-model.md` §2 §5\n**TODO**：T-09"
+    },
+    {
+      "title": "[M1] MNA 装配 ＋ 稠密 LU ＋ 残差校验",
+      "milestone": "M1 内核最小垂直切片",
+      "labels": ["area/core"],
+      "body": "**目标**：`mna` 模块：阻抗支路 stamping、电压源增广行、部分主元 LU、解后残差校验。\n\n**验收**\n- [ ] 三元件串并联手算例与实现一致（相对误差 < 1e-10）\n- [ ] 残差 > `1e-10` → `E_SINGULAR_MATRIX`，不静默返回\n- [ ] 主元 < `1e-14 × max|A|` → 同上\n- [ ] 每次 `solve` 全量重建，无增量复用\n\n**文档**：`docs/solver.md` §2 §9、`docs/architecture.md` §5\n**TODO**：T-09"
+    },
+    {
+      "title": "[M1] 开关迭代、滞环与振荡检测",
+      "milestone": "M1 内核最小垂直切片",
+      "labels": ["area/core"],
+      "body": "**目标**：状态向量不动点迭代；`KM`/`KA` 用 `pick_current` / `drop_current` 滞环；循环检测报 `E_OSCILLATION`。\n\n**验收**\n- [ ] 线圈电流落在滞环区间内不抖动\n- [ ] 迭代上限 100 轮\n- [ ] 振荡时诊断列出参与振荡的器件 id\n- [ ] 应用传入的 `state_bits` 提示能加速收敛且不改变最终状态\n\n**文档**：`docs/solver.md` §6\n**TODO**：T-09"
+    },
+    {
+      "title": "[M1] C3 单网表跑通（门禁 G1）",
+      "milestone": "M1 内核最小垂直切片",
+      "labels": ["area/core", "gate"],
+      "body": "**目标**：`fixtures/C3.json` 端到端跑通，门禁 G1 全过。\n\n**验收**\n- [ ] 地点 1 启动：`M1` 每相 `5.02 A`、`KM1` 线圈 `26.35 mA`（容差 1%）\n- [ ] 地点 2 停止：全部 `0 A`，`KM1` 释放\n- [ ] 同一输入连跑两次结果**字节一致**\n- [ ] 三个反例：无 `PE` / 两个 `PE` / `L1–L2` 导线直连\n\n**判据**：`docs/roadmap.md` §3 门禁 G1、`docs/verification.md` C3\n**TODO**：T-09"
+    },
+    {
+      "title": "[M2] 补 7 类器件（FU / KA / KT / KS / R / EL / TB）",
+      "milestone": "M2 器件与案例铺满",
+      "labels": ["area/core"],
+      "body": "**目标**：把剩余 7 类器件的接点表、支路、参数、状态来源全部实现。\n\n**验收**\n- [ ] `KT` 按 `elapsed_ms ≥ delay_ms` 动作，`55-56` 闭 / `67-68` 断\n- [ ] `KS` 按 `rpm` 与 `n_pick`/`n_drop` 滞环动作，正反转两组触点\n- [ ] `FR` 按 `set_current` ＋ `elapsed_ms` 动作，`95-96` 断 / `97-98` 合\n- [ ] `TB` 内部等势，其接点 `HAS_I = 0`\n\n**文档**：`docs/domain-model.md` §2、`docs/api.md` §2.4 §3\n**流程**：`.agent/workflows/03-add-device.md`\n**TODO**：T-10"
+    },
+    {
+      "title": "[M2] 短路拓扑预检接入每轮迭代",
+      "milestone": "M2 器件与案例铺满",
+      "labels": ["area/core"],
+      "body": "**目标**：按导体类 / 负载类划分做拓扑预检，每一轮开关迭代都判。\n\n**验收**\n- [ ] `L1–L2` 经导线或闭合触点直连 → `E_SHORT_CIRCUIT`，诊断给两相与路径器件\n- [ ] 路径含 `M` / `R` / `EL` / 线圈 → 不算短路\n- [ ] 星三角两只接触器同时吸合 → 报短路（互锁有效性）\n- [ ] C3 初始态**不误报**\n\n**文档**：`docs/solver.md` §7、`DECISION.md` D-20261103-22\n**TODO**：T-10"
+    },
+    {
+      "title": "[M2] 诊断码与定位（W_OVERCURRENT / W_OPEN_CIRCUIT）",
+      "milestone": "M2 器件与案例铺满",
+      "labels": ["area/core"],
+      "body": "**目标**：告警级诊断与 error 级诊断都能定位到 `device_id` / `terminal_id`；文案不进库。\n\n**验收**\n- [ ] 支路 > 50 A → `W_OVERCURRENT`（warn，不判失败）\n- [ ] 期望导通但 `I < 1 mA` → `W_OPEN_CIRCUIT`\n- [ ] 每条 error 诊断都带定位，找不到具体接点时填 `0xFFFFFFFF`\n- [ ] 库里没有中文文案（只有码）\n\n**文档**：`docs/api.md` §5\n**TODO**：T-10"
+    },
+    {
+      "title": "[M2] fixtures C1…C10 与反例（门禁 G2）",
+      "milestone": "M2 器件与案例铺满",
+      "labels": ["area/core", "gate"],
+      "body": "**目标**：10 类电路的网表 ＋ 期望值 ＋ 每类一条反例。\n\n**验收**\n- [ ] `fixtures/` 十份齐全，`baseline_source` 均为 `自建`，每份恰好一个 `PE`\n- [ ] `verification.md` §3 的断言逐条有对应 fixture 用例\n- [ ] C8 只断言接线状态（电流恒 0 属已知不覆盖）\n- [ ] 每个错误码至少一个反例用例\n\n**判据**：`docs/roadmap.md` §3 门禁 G2\n**流程**：`.agent/workflows/04-add-fixture.md`\n**TODO**：T-10"
+    },
+    {
+      "title": "[M3] cabi 定稿：4 函数 5 结构体 ＋ 偏移 static_assert",
+      "milestone": "M3 双端打通",
+      "labels": ["area/cabi", "contract"],
+      "body": "**目标**：`api.md` 定义的结构体与函数全部实现，布局用编译期断言锁死。\n\n**验收**\n- [ ] `size_of` / `offset_of` 断言与 `api.md` 表格逐项相符（`pcx_device_t` 88B、`pcx_terminal_result_t` 40B 等）\n- [ ] 两阶段查询：NULL 缓冲 → `PCX_NEED_BUFFERS` 且 `*_count` 已填\n- [ ] 容量不足 → `E_BUFFER_TOO_SMALL` 且回填所需数量\n- [ ] 库不改任何输入缓冲\n\n**文档**：`docs/api.md` §2 §4\n**TODO**：T-12"
+    },
+    {
+      "title": "[M3] C# 绑定层 ＋ Unity Mono 样例",
+      "milestone": "M3 双端打通",
+      "labels": ["area/csharp"],
+      "body": "**目标**：`PcxNative` / `PcxCircuit` / `PcxErrorText` ＋ `Sample_TwoLocationControl.cs`，Editor 内 Play 即跑 C3。\n\n**验收**\n- [ ] 启动时 `Marshal.SizeOf` 断言与 `api.md` 一致，不符立即抛\n- [ ] 固定 10 ms 累加器驱动，不随帧率变化\n- [ ] 错误码 → 中文映射表在绑定层\n- [ ] 只在 `UNITY_EDITOR && UNITY_STANDALONE_WIN` 启用\n\n**文档**：`docs/integration.md` §3\n**TODO**：T-12"
+    },
+    {
+      "title": "[M3] wasm 封装 bindings/web/pcx.ts",
+      "milestone": "M3 双端打通",
+      "labels": ["area/wasm"],
+      "body": "**目标**：`DataView` 按 `api.md` 偏移填结构体、两阶段查询取结果、错误码映射。\n\n**验收**\n- [ ] 与 C ABI 同一套偏移，无 JS 侧结构体对象映射\n- [ ] 两阶段查询可复用同一块 `WebAssembly.Memory`\n- [ ] `pcx_abi_version()` 与 TS 常量比对，不符报 `E_VERSION`\n\n**文档**：`docs/integration.md` §4.1\n**TODO**：T-12"
+    },
+    {
+      "title": "[M3] 双端比对与三宿主一致（门禁 G3）",
+      "milestone": "M3 双端打通",
+      "labels": ["area/ci", "gate"],
+      "body": "**目标**：同一份 `fixtures/C*.json` 在 Rust / Unity 样例 / wasm 三处结果字节一致。\n\n**验收**\n- [ ] `scripts/compare` 能一键跑三端并输出差异报告\n- [ ] 10 份 fixture 全过\n- [ ] 差异时打印到具体接点与字段，不只报总数\n\n**判据**：`docs/roadmap.md` §3 门禁 G3\n**TODO**：T-12"
+    },
+    {
+      "title": "[M4] 演示页图元层与数据层",
+      "milestone": "M4 演示页",
+      "labels": ["area/web"],
+      "body": "**目标**：单文件 HTML ＋ Canvas 2D，读 `fixtures/C3.json` 绘制 15 器件 / 30 导线 / 65 接点。\n\n**验收**\n- [ ] 盒子坐标与 `demo.md` §3.3 一致，接点位置由 §3.4 的 `(边,u,v)` 规则算出\n- [ ] 通电导线红实线、断电灰实线、预览橙虚线\n- [ ] 触点闭合/断开、电机、接地符号按 §4 绘制\n- [ ] 画布上只标电压；电流进右侧 65 行接点表\n\n**文档**：`docs/demo.md` §3 §4 §5\n**TODO**：T-11"
+    },
+    {
+      "title": "[M4] 接点悬停浮层：65 接点五行数据必出",
+      "milestone": "M4 演示页",
+      "labels": ["area/web"],
+      "body": "**目标**：任意接点移入即弹浮层，**不管是否通电、是否成通路**都有数据。\n\n**验收**\n- [ ] 五行齐全：电压 / 电流 / 等势点 / 连通分量 / 导通状态\n- [ ] 未通电显示 `0.0 V`；`FLOATING` 显示 `0.0 V` ＋ 未接入\n- [ ] 无内部支路的接点（`TB`/`PE`）电流显示 `—`\n- [ ] 地毯式悬停 65 个接点，**零空浮层**\n\n**文档**：`docs/demo.md` §5.4、验收 D-10 D-11\n**TODO**：T-11"
+    },
+    {
+      "title": "[M4] 工具栏清空全部导线 / 恢复初始 ＋ 空网表求解",
+      "milestone": "M4 演示页",
+      "labels": ["area/web"],
+      "body": "**目标**：导线可全部删光并从零重接，全程每个接点都有数。\n\n**验收**\n- [ ] `清空全部导线` 后导线数 0，`solve` 成功（宽松模式，无 error）\n- [ ] 0 条时 `P1` 四点为 `0 V`，其余 61 点 `0 V` ＋ `FLOATING`，诊断给 `W_IMPLICIT_REFERENCE`\n- [ ] 逐条重接 30 条，每条之后都有数；接上 `P1.N–PE1` 时隐含参考警告消失\n- [ ] `恢复初始网表` 复位 `state_bits` 与 `wires`\n\n**文档**：`docs/demo.md` §7、`docs/solver.md` §4\n**TODO**：T-11"
+    },
+    {
+      "title": "[M4] 演示页验收 D-1…D-14（门禁 G4）",
+      "milestone": "M4 演示页",
+      "labels": ["area/web", "gate"],
+      "body": "**目标**：`demo.md` §10 与 §10.1 的 14 条验收全过。\n\n**必过项**\n- [ ] D-6 删掉自锁线即刻失电\n- [ ] D-7 删掉接地线报缺参考点（严格模式口径）\n- [ ] D-8 `L1–L2` 直连报短路\n- [ ] D-10 65 接点地毯式悬停零空浮层\n- [ ] D-12 / D-13 清空全部导线再逐条重接，全程有数无 error\n\n**判据**：`docs/roadmap.md` §3 门禁 G4\n**TODO**：T-11"
+    },
+    {
+      "title": "[M5] AGENT.md §4 回填实测命令与输出",
+      "milestone": "M5 交付收口",
+      "labels": ["area/docs"],
+      "body": "**目标**：把\"目标态命令\"换成本机实测过的四条命令（构建 / 单测 / 跑单个用例 / wasm 打包），并附真实输出。\n\n**验收**\n- [ ] `AGENT.md` §4 删掉\"骨架未落地\"的说明\n- [ ] 每条命令下有本机真实输出片段\n- [ ] 跑单个用例的命令确实可用（`cargo test <name>`）\n\n**TODO**：T-13"
+    },
+    {
+      "title": "[M5] 三份 README 接入说明（csharp / web / 根）",
+      "milestone": "M5 交付收口",
+      "labels": ["area/docs"],
+      "body": "**目标**：新机器照 README 能一次跑通。\n\n**验收**\n- [ ] 根 README：定位、10 类电路、目录、快速开始（真能照着跑）\n- [ ] `bindings/csharp/README.md`：DLL 落位、`DllImport` 要点、`.meta` 交给 Unity\n- [ ] `bindings/web/README.md`：wasm-pack 产物、`pcx.ts` 用法、演示页怎么开\n- [ ] 三份都不含未验证的命令\n\n**TODO**：T-13"
+    },
+    {
+      "title": "[M5] 台账齐账 ＋ 二期归位（门禁 G5）",
+      "milestone": "M5 交付收口",
+      "labels": ["area/docs", "gate"],
+      "body": "**目标**：三份台账与仓库实际状态一致，二期能力归位到 milestone「二期」。\n\n**验收**\n- [ ] `RECORD.md` 补齐 `R-01…R-NN`，与 `git log` 对得上\n- [ ] `TODO.md` §2 只剩真实未做项，§1 待拍板为当前的实际情况\n- [ ] 二期 issue 全部挂到「二期」里程碑\n- [ ] `node .agent/skills/doc-guard/check.mjs` 全过\n\n**判据**：`docs/roadmap.md` §3 门禁 G5\n**TODO**：T-13"
+    },
+    {
+      "title": "[二期] B′：电机每转电动势系数",
+      "milestone": "二期",
+      "labels": ["area/core", "contract"],
+      "body": "**目标**：给 `M` 增加\"每转电动势系数\"，用应用传入的 `rpm` 算反电动势，使能耗制动的制动电流可算（仍不算转速、不算转矩）。\n\n**背景**：C8 能耗制动电流恒为 0 是本期已知不覆盖（`verification.md` §5、`DECISION.md` D-20261103-23）。\n\n**注意**：电机支路会从纯阻抗变成\"阻抗 ＋ 受控电压源\"，MNA 装配与开关迭代都要多一层；与瞬时值时域同批做。"
+    },
+    {
+      "title": "[二期] 瞬时值时域与缺相故障分析",
+      "milestone": "二期",
+      "labels": ["area/core", "contract"],
+      "body": "**目标**：在一期相量之上新增瞬时值模式，用于缺相、波形与相位差的观察。\n\n**约束**（`DECISION.md` D-20261103-03 / D-20261103-15）\n- [ ] **不改一期结构体字段语义**，新增独立结构体与独立导出函数\n- [ ] `ABI_VERSION` 单独导出，不塞进结果结构体\n- [ ] 绑定层提供统一门面，调用方代码不因二期上线而改\n\n**文档**：`docs/solver.md` §10（预留章节）"
+    },
+    {
+      "title": "[二期] C9 演示案例 ＋ 假转速模型 ＋ 多案例切换",
+      "milestone": "二期",
+      "labels": ["area/web"],
+      "body": "**目标**：演示页支持多案例，新增 C9 反接制动，`KS` 的转速由应用侧假模型驱动。\n\n**背景**：本期演示页只有 C3，`KS` 与 `rpm` 没有消费者（`docs/demo.md` §1、`DECISION.md` D-20261103-24）。\n\n**待补**\n- [ ] 假转速模型：得电升速 / 失电按惯性降速 / 反接反向，参数写进 `demo.md`\n- [ ] C9 网表与 `KS` 触点动作验收\n- [ ] 案例切换 UI（不破坏 C3 的 D-1…D-14）"
+    },
+    {
+      "title": "[二期] 三维演示与移动端平台",
+      "milestone": "二期",
+      "labels": ["area/web"],
+      "body": "**目标**：把二维演示升级为 three.js 三维实物接线；评估移动端 / macOS / Linux 与 Unity WebGL 的打包路径。\n\n**已铺好的路**：端子 id 与屏幕坐标已解耦（`TerminalId → (x,y)` 独立映射表），换三维只换映射表（`DECISION.md` D-20261103-16 / D-20261103-08）。\n\n**注意**：Unity WebGL Player 不能 `P/Invoke` 通用 DLL，若要做只能走 Web 侧 wasm；移动端需重新定义平台矩阵。"
+    }
+  ]
+}

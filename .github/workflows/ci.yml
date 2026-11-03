@@ -1,0 +1,85 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  guard:
+    # 故意不写 name：分支保护要求的 status check 上下文按 job key 匹配，稳定为 `guard`。
+    # 改名会让 `main` 的必需检查永远等不到结果，PR 永远无法合并。
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: doc-guard
+        run: node .agent/skills/doc-guard/check.mjs
+
+  rust:
+    name: 内核构建与测试
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: 探测 workspace
+        id: ws
+        shell: bash
+        run: |
+          if [ -f Cargo.toml ]; then
+            echo "present=1" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=0" >> "$GITHUB_OUTPUT"
+          fi
+      - name: 尚无 workspace
+        if: steps.ws.outputs.present == '0'
+        shell: bash
+        run: echo "::notice title=跳过::Cargo.toml 未建立（M0 未完成），跳过 Rust 构建与测试"
+      - name: fmt
+        if: steps.ws.outputs.present == '1'
+        run: cargo fmt --all -- --check
+      - name: clippy
+        if: steps.ws.outputs.present == '1'
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: test
+        if: steps.ws.outputs.present == '1'
+        run: cargo test --workspace
+      - name: build (windows dll)
+        if: steps.ws.outputs.present == '1'
+        run: cargo build --workspace --release
+
+  wasm:
+    name: wasm 打包
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: 探测 wasm crate
+        id: ws
+        shell: bash
+        run: |
+          if [ -f crates/wasm/Cargo.toml ]; then
+            echo "present=1" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=0" >> "$GITHUB_OUTPUT"
+          fi
+      - name: 尚无 wasm crate
+        if: steps.ws.outputs.present == '0'
+        shell: bash
+        run: echo "::notice title=跳过::crates/wasm 未建立，跳过 wasm 打包"
+      - name: wasm-pack build
+        if: steps.ws.outputs.present == '1'
+        run: |
+          curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+          wasm-pack build crates/wasm --target web --out-dir ../../bindings/web/pkg

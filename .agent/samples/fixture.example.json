@@ -1,0 +1,59 @@
+{
+  "_comment": "结构样例，不是真实案例。真实案例在 fixtures/C1…C10.json。terminal_base 必须等于前面所有器件接点数的前缀和，手写必错，用脚本算。",
+
+  "case": "C1",
+  "baseline_source": "自建",
+  "note": "点动：按住 SB 时 M1 三相 5.02 A，松开归零。仅演示字段结构。",
+
+  "devices": [
+    { "ref": "P1", "kind": "POWER", "id": 1, "terminal_base": 0, "aux": 0,
+      "params": [380, 50, 0.001, 1, 0, 0, 0, 0] },
+
+    { "ref": "SB1", "kind": "SB", "id": 2, "terminal_base": 4, "aux": 2,
+      "params": [0.001, 0, 0, 0, 0, 0, 0, 0] },
+
+    { "ref": "KM1", "kind": "KM", "id": 3, "terminal_base": 8, "aux": 5,
+      "params": [12000, 8000, 0.02, 0.012, 0.001, 0, 0, 0] },
+
+    { "ref": "M1", "kind": "M", "id": 4, "terminal_base": 20, "aux": 0,
+      "params": [40, 18, 0, 0, 0, 0, 0, 0] },
+
+    { "ref": "PE1", "kind": "PE", "id": 5, "terminal_base": 26, "aux": 0,
+      "params": [0, 0, 0, 0, 0, 0, 0, 0] }
+  ],
+
+  "wires": [
+    { "a": 0, "b": 8, "note": "P1.L1 → SB1.1" },
+    { "a": 1, "b": 9, "note": "P1.L2 → SB1.2（本例仅示结构，接线不完整）" },
+    { "a": 2, "b": 10, "note": "P1.L3" },
+    { "a": 3, "b": 27, "note": "P1.N → PE1.PE（必须有这一根）" }
+  ],
+
+  "steps": [
+    {
+      "name": "初始（SB 松开）",
+      "state": { "SB1": { "state_bits": 1, "flags": 1 } },
+      "expect": { "M1.U1": { "i_rms": 0.0, "tol_abs": 0.001 } }
+    }
+  ],
+
+  "expect": {
+    "M1.U1": { "i_rms": 0.0, "tol_abs": 0.001 }
+  },
+
+  "expect_error": [
+    { "name": "删掉 PE 线", "drop_wires": [3], "strict": true, "code": "E_NO_REFERENCE" },
+    { "name": "两个 PE", "add_device": { "kind": "PE", "id": 99 }, "code": "E_MULTI_REFERENCE" }
+  ],
+
+  "requests": { "terminals": [], "devices": [] },
+
+  "_field_notes": {
+    "case": "C1…C10，与 docs/verification.md 编号一致",
+    "baseline_source": "自建 或 教材出处；换教材时要能追到源头",
+    "params": "逐位语义见 docs/api.md §2.4",
+    "aux": "QS.poles / KM.aux_no*4+aux_nc / TB.n / SB·SQ.type",
+    "tol": "相对容差；小量用 tol_abs 绝对容差",
+    "expect_error": "反例：每类案例至少一条（workflows/04-add-fixture.md §4）"
+  }
+}

@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 工程手册 AGENT.md（纪律与索引）
+    url: https://github.com/kuaizhongqiang/physical-circuit-experiment/blob/main/AGENT.md
+    about: 动手前先读这个：红线、文档分工、提交纪律
+  - name: 文档地图 docs/README.md
+    url: https://github.com/kuaizhongqiang/physical-circuit-experiment/blob/main/docs/README.md
+    about: 9 份工程文档各管什么、当前状态
+  - name: 里程碑与门禁 docs/roadmap.md
+    url: https://github.com/kuaizhongqiang/physical-circuit-experiment/blob/main/docs/roadmap.md
+    about: M0–M5 的实施顺序、每道门禁的判据
