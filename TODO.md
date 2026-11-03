@@ -3,8 +3,8 @@
 读者：AI / 负责人
 类型：台账
 权威：**待办与待拍板项的唯一清单**
-状态：2026-11-03 — M0–M4 已落地（28 个 fixture case 全绿、双端比对通过）；`§1` 当前无待拍板项
-依赖：`AGENT.md`（纪律）、`docs/README.md`（文档地图）、`docs/roadmap.md`（里程碑与门禁）、`DECISION.md`（已定口径）
+状态：2026-11-03 — **M0–M5 全部完成**，§1 与 §2 均为空；剩余工作只剩二期清单
+依赖：`AGENT.md`（纪律）、`docs/README.md`（文档地图）、`docs/roadmap.md`（里程碑与门禁，§6 为二期清单）、`DECISION.md`（已定口径）
 
 ## 0 用法
 
@@ -15,14 +15,14 @@
 
 ## 1 待拍板
 
-**（无）** 口径已全部拍板：`DECISION.md` D-20261103-01…28。新问题出现时按编号 P-23 起追加于此。
+**（无）** 口径已全部拍板：`DECISION.md` D-20261103-01…30。新问题出现时按编号 P-23 起追加于此。
 
 ## 2 待办
 
-### M5 交付收口（门禁 G5）
+**（无）** 本期的实现与收口工作已全部完成：
 
-- **T-13** 三份 README 写清接入方式（`bindings/csharp`、`bindings/web`、仓库根补"已可运行"段落）；`RECORD.md` 补齐 `R-04` 起的登记；演示页按 `docs/demo.md` §10 / §10.1 的人工验收 D-1…D-14 跑一遍并记录结果。
+- M0–M4 的 `T-01…T-12` 随实现落地删除；
+- `T-13`（三份 README ＋ `RECORD` 齐账 ＋ 演示页人工验收）已随 M5 完成，验收记录见 `docs/demo.md` §10.2；
+- `T-14`（`guard` 恢复为必需检查）已随 CI 自动触发恢复而结清，口径见 `DECISION.md` D-20261103-30。
 
-### 仓库流程（无里程碑）
-
-- **T-14** 等 GitHub 侧 push / pull_request 事件能正常产生 Actions 运行后，把 `guard` 加回 `main` 的必需状态检查（`required_status_checks.contexts = ["guard"]`），并删掉 `.agent/notes/github-actions-triggers.md` 里的手动 dispatch 对策。判据：开一个 PR，`gh pr checks` 能看到 `guard` 且能合并。
+**二期再启动时**：从 `docs/roadmap.md` §6 与 GitHub milestone `二期` 取条目，按新一轮 P 编号重新开待拍板；本文件不预置二期待办。

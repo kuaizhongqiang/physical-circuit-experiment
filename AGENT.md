@@ -3,7 +3,7 @@
 读者：AI
 类型：纪律
 权威：本工程**唯一**"有内容"的 agent 手册；**只写纪律与索引，不写描述**
-状态：2026-11-03 建立（口径已拍板 27 条、编号至 D-20261103-28；`docs/` 9 份文档首版完成；代码骨架未落地，里程碑见 `docs/roadmap.md`，待办见 `TODO.md` §2）
+状态：2026-11-03 建立（口径已拍板 29 条、编号至 D-20261103-30；`docs/` 9 份文档；**M0–M5 全部完成**，剩余为二期清单，见 `docs/roadmap.md` §6）
 依赖：`docs/`（工程内容事实源）、`docs/raw/`（只读原始需求）、`TODO.md` / `DECISION.md` / `RECORD.md`（三份台账）
 
 本文件只写**做什么 / 不许做什么 / 去哪查**。工程是什么、电路怎么算、元器件怎么建模 —— 一律查 `docs/`，本文件**不复述**。
@@ -55,7 +55,7 @@
   - 所有改动一律走 **`分支 → PR → merge`**。直推 `main` 会被 GitHub 拒绝（分支保护：**必需 PR** ＋ 禁强推 ＋ 禁删除）。
   - 分支命名 `feat/…` / `fix/…` / `docs/…` / `chore/…`，一句话说清改什么。
   - PR 标题用**提交信息首行**（`gh pr create --fill` 直接从提交取，中文不必进命令行）；body 用 `.github/pull_request_template.md`。
-  - **CI 未绿不许合并**。⚠️ 本仓库 push / pull_request 事件目前**不产生运行**，只有 `workflow_dispatch` 能跑，且 dispatch 不计入 PR 状态检查 —— 所以合并前**手动**跑一次：`gh workflow run ci --ref <branch>` ＋ `gh run watch`。该口径见 `DECISION.md` D-20261103-27，恢复自动触发后再把 `guard` 设回必需检查。
+  - **CI 未绿不许合并**。`guard` 是 `main` 的**必需检查**（自动触发已恢复，`DECISION.md` D-20261103-30）。若 PR 上看不到 check，兜底手动跑：`gh workflow run ci --ref <branch>` ＋ `gh run watch`（现象与排查见 `.agent/notes/github-actions-triggers.md`）。
   - 合并方式 **squash merge**：`main` 保持线性，一个逻辑变更一个提交，历史可读。
   - 合并后**删除分支**；`RECORD.md` 登记的是 squash 后的那个提交。
   - **唯一例外**：仓库还没有任何提交记录时的 bootstrap（本次首次提交），之后不再有例外。

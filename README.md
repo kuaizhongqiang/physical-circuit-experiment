@@ -50,8 +50,8 @@ Unity 工程里用 C# 做拓扑电路计算踩过坑，但问题不在语言 —
 | 工程文档 | **9 份首版完成**（[`docs/README.md`](docs/README.md)） |
 | 内核 | **已落地**：15 类器件、相量 MNA、开关迭代、短路拓扑预检；10 份 fixture / 28 个 case 全绿 |
 | 双端 | DLL 与 wasm 均产出；wasm 侧 28 个 case 与 fixture 期望逐条一致 |
-| 演示页 | 已实现（Canvas 2D，C3 两地控制），**待人工验收** D-1…D-14（[`docs/demo.md`](docs/demo.md) §10） |
-| 里程碑 | M0–M4 完成；剩 **M5** 收口（[`docs/roadmap.md`](docs/roadmap.md)） |
+| 演示页 | 已实现并人工验收（Canvas 2D，C3 两地控制）：悬停五行数据、按下/抬起操作、删光重接、导线清单（[`docs/demo.md`](docs/demo.md)） |
+| 里程碑 | **M0–M5 全部完成**；二期清单见 [`docs/roadmap.md`](docs/roadmap.md) §6 |
 
 ## 目录
 

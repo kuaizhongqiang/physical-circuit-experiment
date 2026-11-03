@@ -55,3 +55,9 @@ gh api "repos/{owner}/{repo}/actions/runs?event=pull_request" # 有没有 PR 运
 ```
 
 三条都是 0 且 dispatch 能跑 → 就是本笔记记录的情况，不要再折腾 YAML。
+
+## 5 后续（2026-11-03 当天恢复）
+
+- PR #32 / #33 起，`push` 与 `pull_request` 事件**恢复正常产生运行**，`guard` 已在 `main` 的必需检查位上通过。
+- 本笔记保留作现象记录：若再次出现"PR 上没有 check"，先按 §4 的三条命令确认，再决定是否手动 dispatch。
+- 相关口径：`DECISION.md` D-20261103-27（当时的让步）与 D-20261103-30（恢复）。
