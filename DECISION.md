@@ -3,7 +3,7 @@
 读者：AI / 负责人
 类型：台账
 权威：负责人已定口径的唯一清单
-状态：2026-11-03 建立；首批 11 条（原 P-01…P-11）＋ 第二批 6 条（原 P-12…P-17）＋ 第三批 5 条（原 P-18…P-21 ＋ 短路细化）＋ 第四批 3 条（P-22 处置 ＋ 演示页范围 ＋ 参考点三分类）＋ 第五批 2 条（仓库流程 PR 化 ＋ 分支保护让步）＋ 第六批 1 条（Web 端 JSON 门面）＋ 第七批 2 条（演示页交互契约 ＋ CI 必需检查复原）
+状态：2026-11-03 建立；首批 11 条（原 P-01…P-11）＋ 第二批 6 条（原 P-12…P-17）＋ 第三批 5 条（原 P-18…P-21 ＋ 短路细化）＋ 第四批 3 条（P-22 处置 ＋ 演示页范围 ＋ 参考点三分类）＋ 第五批 2 条（仓库流程 PR 化 ＋ 分支保护让步）＋ 第六批 1 条（Web 端 JSON 门面）＋ 第七批 2 条（演示页交互契约 ＋ CI 必需检查复原）＋ 第八批 1 条（发布口径）
 依赖：`TODO.md` §1（未拍板项在那边，拍板后转到这里）
 
 ## 0 写法
@@ -242,3 +242,13 @@
 - D-27 的"手动 dispatch"降级为**兜底**：只有当 PR 上看不到 check 时才手动跑 `gh workflow run ci --ref <branch>`。
 - 现象记录保留在 `.agent/notes/github-actions-triggers.md`（标注已恢复），下次再遇到先查它，不要再折腾 YAML。
 - 应对：`AGENT.md` §3 的 CI 段、`.agent/workflows/02-commit.md` §5 改回"等自动检查"，并把兜底写成一行注释；`TODO.md` T-14 结清。
+
+### D-20261103-31 发布口径：tag 从 `v0.0.0` 起，tag ⇔ Cargo 版本，产物挂 Release 不入库（负责人拍板）
+
+- **版本起点 `v0.0.0`**：本期是首次可用交付，按负责人要求从 0 起，不用 1.0 暗示稳定。`Cargo.toml` 的 `[workspace.package].version` 同步为 `0.0.0`。
+- **tag 与版本严格一致**：`release.yml` 第一步就把 tag 去掉 `v` 与 `Cargo.toml` 的 `version` 对比，不等直接失败。避免"tag 写 v0.0.1 但 DLL 里报 0.0.0"这种无法追溯的状态。
+- **版本串只允许一个来源**：`crates/cabi` 的 `pcx_version()` 改用 `concat!(env!("CARGO_PKG_VERSION"), "\0")`，**禁止硬编码**（原先写死 `0.1.0`，已验证是漂移隐患）。
+- **发布物 = GitHub Release 附件**：`pcx-unity-<tag>.zip`（DLL ＋ C# 源码 ＋ `api.md`/`integration.md`）、`pcx-web-<tag>.zip`（wasm ＋ JS ＋ 演示页 ＋ `C3.json`）＋ 两个裸产物。**二进制仍不入库**（延续 D-20261103-08 的"不发 npm、产物不入库"）。
+- **触发方式两条**：`workflow_dispatch`（输版本号，`--target main` 建 tag）与 `push.tags`（本地打 tag 再推）。tag 已存在时自动退化为补传附件，可重复执行。
+- **tag 不受 `main` 分支保护约束**：保护只拦代码提交，不拦 tag；但每个 tag 指向的提交本身就是走过 PR 的。
+- 应对：`.github/workflows/release.yml`、`.agent/workflows/05-release.md`（重写，删掉从未存在的 `scripts/build.ps1` / `copy-unity.ps1` 引用）、`README.md` §发布、`AGENT.md` §4。

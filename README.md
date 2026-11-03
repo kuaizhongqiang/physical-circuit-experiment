@@ -111,6 +111,18 @@ node .agent/skills/doc-guard/check.mjs
 | 看实施顺序与门禁 | [`docs/roadmap.md`](docs/roadmap.md) |
 | 还没做 / 已拍板 | [`TODO.md`](TODO.md) / [`DECISION.md`](DECISION.md) |
 
+## 发布
+
+版本从 `v0.0.0` 起。**tag 必须与 `Cargo.toml` 的 `version` 一致**，流水线会校验，不一致直接失败。
+
+```bash
+gh workflow run release.yml -f version=v0.0.0   # 或 git push origin v0.0.0
+```
+
+流水线依次做：版本一致性检查 → fmt / clippy / test → 构建 DLL 与 wasm → 双端比对 → 打包 → 建 Release。
+Release 附件：`pcx-unity-<tag>.zip`（DLL ＋ C# ＋ 接口文档）、`pcx-web-<tag>.zip`（wasm ＋ JS ＋ 演示页）、以及两个裸产物。
+详见 [`.agent/workflows/05-release.md`](.agent/workflows/05-release.md)。
+
 ## 许可
 
 [MIT](LICENSE)

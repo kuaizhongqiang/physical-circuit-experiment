@@ -106,7 +106,8 @@ pub struct PcxOutput {
     pub diag_count: u32,
 }
 
-static VERSION_C: &[u8] = b"0.1.0\0";
+/// 版本字符串由 Cargo 注入，**禁止硬编码**，否则会与 crate 版本 / 发布 tag 漂移
+static VERSION_C: &[u8] = concat!(env!("CARGO_PKG_VERSION"), "\0").as_bytes();
 
 #[no_mangle]
 pub extern "C" fn pcx_abi_version() -> u32 {
