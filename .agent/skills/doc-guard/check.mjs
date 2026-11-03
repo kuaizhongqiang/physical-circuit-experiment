@@ -82,7 +82,7 @@ function checkIds(file, pattern, label) {
 checkIds("TODO.md", /^### (P-\d{2})\b/, "待拍板编号");
 checkIds("TODO.md", /^- \*\*(T-\d{2})\*\*/, "待办编号");
 checkIds("DECISION.md", /^### (D-\d{8}-\d{2})\b/, "决策编号");
-checkIds("RECORD.md", /^\|\s*(R-\d{2})\s*\|/, "提交登记编号");
+checkIds("RECORD.md", /^\|\s*`?(R-\d{2})`?\s*\|/, "提交登记编号");
 
 // ---------- 7 fixtures 必填字段与 PE ----------
 {

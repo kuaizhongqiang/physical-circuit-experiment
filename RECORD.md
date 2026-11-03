@@ -3,7 +3,7 @@
 读者：AI / 负责人
 类型：台账
 权威：已提交变更的唯一清单
-状态：2026-11-03 建立；已登记 `R-01`
+状态：2026-11-03 建立；已登记 `R-01`、`R-02`
 依赖：`DECISION.md`（口径来源）
 
 ## 0 写法
@@ -19,3 +19,4 @@
 | 编号 | 提交 | 信息首行 | 主要路径 |
 |---|---|---|---|
 | `R-01` | `e349c91` | `chore(repo): 初始化工程手册、设计文档与 agent 工具链` | `AGENT.md` `CODEBUDDY.md` `README.md` `.gitignore` `TODO.md` `DECISION.md` `RECORD.md` `docs/`(10) `.agent/`(19) `.github/`(7) |
+| `R-02` | `7d1d13d` | `docs(record): 登记 R-01 并补记 RECORD 的滞后登记规则 (#30)` | `RECORD.md` `.github/workflows/ci.yml`（PR 全流程验证：分支 → PR → squash → 删分支） |

@@ -52,6 +52,7 @@
 |---|---|
 | `notes/powershell-encoding.md` | PowerShell 5.1 的编码与语法坑（`.ps1` 必须 UTF-8 with BOM） |
 | `notes/gh-cli.md` | gh CLI 建里程碑 / issue / 中文安全的写法 |
+| `notes/github-actions-triggers.md` | 本仓库 push / PR 事件不触发 CI 的实测现象与对策 |
 
 ## 6 维护规则
 

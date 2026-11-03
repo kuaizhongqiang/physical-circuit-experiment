@@ -42,6 +42,10 @@
 
 - **T-11** Canvas 2D 演示页（`bindings/web/demo.*`），严格按 **`docs/demo.md`** 实现：图元层 ＋ 数据层（读 `fixtures/C3.json`）＋ 交互层（增删线 / 操作 `SB·QS·SQ`）＋ **接点悬停浮层（任意接点必有五行数据）** ＋ **工具栏（清空全部导线 / 恢复初始）** ＋ 右侧接点表与诊断栏；验收见 `demo.md` §10 与 §10.1 的 D-1…D-14。
 
+### 仓库流程（无里程碑）
+
+- **T-14** 等 GitHub 侧 push / pull_request 事件能正常产生 Actions 运行后，把 `guard` 加回 `main` 的必需状态检查（`repos/{owner}/{repo}/branches/main/protection` 的 `required_status_checks.contexts = ["guard"]`），并删掉 `.agent/notes/github-actions-triggers.md` 里的手动 dispatch 对策。判据：开一个 PR，`gh pr checks` 能看到 `guard` 且能合并。
+
 ### M5 交付收口（门禁 G5）
 
 - **T-13** `AGENT.md` §4 回填四条实测命令与真实输出；`bindings/{csharp,web}` 与仓库根三份 README 写清接入方式；`RECORD.md` 登记 `R-01` 起；`TODO.md` §2 转入二期清单（B′ / 瞬时值 / 三维 / 移动端 / 教材校准）。
