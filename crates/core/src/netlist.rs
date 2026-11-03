@@ -135,7 +135,7 @@ pub fn validate(input: &Input) -> Result<usize, (u32, usize, u32)> {
     for (i, w) in input.wires.iter().enumerate() {
         let _ = i;
         if w.a >= total || w.b >= total {
-            return Err((E_TERMINAL_RANGE, 0xFFFF_FFFF as usize, w.a.min(w.b)));
+            return Err((E_TERMINAL_RANGE, 0xFFFF_FFFF_usize, w.a.min(w.b)));
         }
     }
     Ok(total as usize)
@@ -152,10 +152,8 @@ fn check_params(d: &Device) -> Result<(), u32> {
         }
     }
     match d.kind {
-        Kind::Power => {
-            if p[0] < 0.0 || p[1] < 0.0 || p[2] < 0.0 {
-                return Err(0);
-            }
+        Kind::Power if (p[0] < 0.0 || p[1] < 0.0 || p[2] < 0.0) => {
+            return Err(0);
         }
         Kind::Km | Kind::Ka | Kind::Kt => {
             if !positive(p[0]) || !non_neg(p[1]) {
@@ -168,30 +166,20 @@ fn check_params(d: &Device) -> Result<(), u32> {
                 return Err(0); // 释放点必须低于吸合点
             }
         }
-        Kind::Ks => {
-            if !positive(p[0]) || !positive(p[1]) || p[1] > p[0] {
-                return Err(0);
-            }
+        Kind::Ks if (!positive(p[0]) || !positive(p[1]) || p[1] > p[0]) => {
+            return Err(0);
         }
-        Kind::Fr => {
-            if !positive(p[0]) || !positive(p[1]) {
-                return Err(0);
-            }
+        Kind::Fr if (!positive(p[0]) || !positive(p[1])) => {
+            return Err(0);
         }
-        Kind::M => {
-            if !positive(p[0]) || !non_neg(p[1]) {
-                return Err(0);
-            }
+        Kind::M if (!positive(p[0]) || !non_neg(p[1])) => {
+            return Err(0);
         }
-        Kind::R => {
-            if !positive(p[0]) {
-                return Err(0);
-            }
+        Kind::R if !positive(p[0]) => {
+            return Err(0);
         }
-        Kind::El => {
-            if p[0] < 0.0 || p[1] < 0.0 {
-                return Err(0);
-            }
+        Kind::El if (p[0] < 0.0 || p[1] < 0.0) => {
+            return Err(0);
         }
         _ => {}
     }

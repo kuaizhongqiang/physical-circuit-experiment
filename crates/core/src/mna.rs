@@ -1,5 +1,8 @@
 //! 稠密复系数 LU（部分主元）＋ 残差校验。选型见 `docs/architecture.md` §5、`docs/solver.md` §9。
 
+// 矩阵运算按行/列下标写最直观，禁用 needless_range_loop 提示
+#![allow(clippy::needless_range_loop)]
+
 use crate::complex::{C, ZERO};
 use crate::consts;
 use crate::diag::E_SINGULAR;
@@ -22,7 +25,7 @@ pub fn solve(mut g: Vec<Vec<C>>, mut b: Vec<C>, tol: f64) -> Result<Vec<C>, u32>
             }
         }
     }
-    if !(max_a > 0.0) || !max_a.is_finite() {
+    if max_a <= 0.0 || !max_a.is_finite() {
         return Err(E_SINGULAR);
     }
     let pivot_eps = consts::PIVOT_EPS * max_a;
@@ -38,7 +41,7 @@ pub fn solve(mut g: Vec<Vec<C>>, mut b: Vec<C>, tol: f64) -> Result<Vec<C>, u32>
                 p = r;
             }
         }
-        if !(best > pivot_eps) {
+        if !best.is_finite() || best <= pivot_eps {
             return Err(E_SINGULAR);
         }
         if p != k {

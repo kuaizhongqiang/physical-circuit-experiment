@@ -130,6 +130,11 @@ pub extern "C" fn pcx_terminal_count(kind_u8: u8, aux: u8) -> u32 {
 ///
 /// 两阶段调用：缓冲传 NULL / cap=0 → 返回 `NEED_BUFFERS(1)` 且 `*_count` 已填；
 /// 容量不足 → `E_BUFFER_TOO_SMALL(50)`。
+///
+/// # Safety
+/// - `inp` / `out` 必须指向有效的、可读写对应结构体的内存；
+/// - `inp.devices` / `wires` / `requested_*` 若计数非 0，必须指向相应长度的连续数组；
+/// - 两阶段调用的第二段中，`out.*` 的缓冲指针必须指向容量不小于 `*_count` 的可写内存。
 #[no_mangle]
 pub unsafe extern "C" fn pcx_solve(inp: *const PcxInput, out: *mut PcxOutput) -> u32 {
     if inp.is_null() || out.is_null() {
@@ -142,8 +147,10 @@ pub unsafe extern "C" fn pcx_solve(inp: *const PcxInput, out: *mut PcxOutput) ->
         return diag::E_INVALID_ARG;
     }
 
-    let mut input = Input::default();
-    input.strict_reference = i.flags & 1 != 0;
+    let mut input = Input {
+        strict_reference: i.flags & 1 != 0,
+        ..Default::default()
+    };
 
     if i.device_count > 0 {
         if i.devices.is_null() {
@@ -188,7 +195,8 @@ pub unsafe extern "C" fn pcx_solve(inp: *const PcxInput, out: *mut PcxOutput) ->
             return diag::E_INVALID_ARG;
         }
         // SAFETY: requested_terminal_count 个 u32
-        let slice = std::slice::from_raw_parts(i.requested_terminals, i.requested_terminal_count as usize);
+        let slice =
+            std::slice::from_raw_parts(i.requested_terminals, i.requested_terminal_count as usize);
         input.requested_terminals = Some(slice.to_vec());
     }
     if i.requested_device_count > 0 {
@@ -196,7 +204,8 @@ pub unsafe extern "C" fn pcx_solve(inp: *const PcxInput, out: *mut PcxOutput) ->
             return diag::E_INVALID_ARG;
         }
         // SAFETY: requested_device_count 个 u32
-        let slice = std::slice::from_raw_parts(i.requested_devices, i.requested_device_count as usize);
+        let slice =
+            std::slice::from_raw_parts(i.requested_devices, i.requested_device_count as usize);
         input.requested_devices = Some(slice.to_vec());
     }
     if !i.config.is_null() {

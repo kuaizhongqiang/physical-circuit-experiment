@@ -94,8 +94,16 @@ pub fn states_to_bits(input: &Input, offsets: &[usize], states: &[bool]) -> Vec<
 }
 
 fn coil_z(d: &Device) -> C {
-    let r = if d.params[0] > 0.0 { d.params[0] } else { crate::consts::COIL_R };
-    let x = if d.params[1] >= 0.0 { d.params[1] } else { crate::consts::COIL_X };
+    let r = if d.params[0] > 0.0 {
+        d.params[0]
+    } else {
+        crate::consts::COIL_R
+    };
+    let x = if d.params[1] >= 0.0 {
+        d.params[1]
+    } else {
+        crate::consts::COIL_X
+    };
     C::new(r, x)
 }
 
@@ -129,9 +137,17 @@ pub fn expand(input: &Input, nodes: &[u32], states: &[bool], offsets: &[usize]) 
 
         // ── 电源：三条 Norton 支路 ──
         if d.kind == Kind::Power {
-            let v_line = if d.params[0] > 0.0 { d.params[0] } else { cfg.v_line };
+            let v_line = if d.params[0] > 0.0 {
+                d.params[0]
+            } else {
+                cfg.v_line
+            };
             let v_phase = v_line / 3.0_f64.sqrt();
-            let r_src = if d.params[2] > 0.0 { d.params[2] } else { cfg.r_src };
+            let r_src = if d.params[2] > 0.0 {
+                d.params[2]
+            } else {
+                cfg.r_src
+            };
             let seq = if d.params[3] < 0.0 { -1.0 } else { 1.0 };
             let angles = [0.0, -120.0 * seq, 120.0 * seq];
             let n_node = node(3);
@@ -177,8 +193,16 @@ pub fn expand(input: &Input, nodes: &[u32], states: &[bool], offsets: &[usize]) 
 
         // ── 电机：三条绕组 ──
         if d.kind == Kind::M {
-            let r = if d.params[0] > 0.0 { d.params[0] } else { crate::consts::MOTOR_R };
-            let x = if d.params[1] >= 0.0 { d.params[1] } else { crate::consts::MOTOR_X };
+            let r = if d.params[0] > 0.0 {
+                d.params[0]
+            } else {
+                crate::consts::MOTOR_R
+            };
+            let x = if d.params[1] >= 0.0 {
+                d.params[1]
+            } else {
+                crate::consts::MOTOR_X
+            };
             let y = C::new(r, x).inv();
             for k in 0..3u8 {
                 let idx = ex.branches.len() as u32;
@@ -199,7 +223,11 @@ pub fn expand(input: &Input, nodes: &[u32], states: &[bool], offsets: &[usize]) 
 
         // ── 纯阻抗：R / EL ──
         if d.kind == Kind::R || d.kind == Kind::El {
-            let z = if d.kind == Kind::R { d.params[0] } else { el_resistance(d) };
+            let z = if d.kind == Kind::R {
+                d.params[0]
+            } else {
+                el_resistance(d)
+            };
             let z = if z > 0.0 { z } else { 1.0 };
             let idx = ex.branches.len() as u32;
             ex.branches.push(Branch {

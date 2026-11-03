@@ -47,7 +47,10 @@ pub unsafe extern "C" fn pcx_solve_json(ptr: *const u8, len: usize) -> usize {
                 pcx_core::json::quote(&e)
             ),
         },
-        Err(_) => format!("{{\"code\":{},\"error\":\"utf8\"}}", pcx_core::diag::E_INVALID_ARG),
+        Err(_) => format!(
+            "{{\"code\":{},\"error\":\"utf8\"}}",
+            pcx_core::diag::E_INVALID_ARG
+        ),
     };
     RESULT.with(|r| {
         let mut b = r.borrow_mut();

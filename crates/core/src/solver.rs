@@ -69,11 +69,7 @@ pub fn solve(input: &Input) -> Output {
     let total = match netlist::validate(input) {
         Ok(t) => t,
         Err((code, dev_idx, term)) => {
-            let device_id = input
-                .devices
-                .get(dev_idx)
-                .map(|d| d.id)
-                .unwrap_or(NO_ID);
+            let device_id = input.devices.get(dev_idx).map(|d| d.id).unwrap_or(NO_ID);
             return err_output(code, device_id, term);
         }
     };
@@ -130,7 +126,9 @@ pub fn solve(input: &Input) -> Output {
         if visited.contains(&key) {
             let mut o = err_output(E_OSCILLATION, NO_ID, NO_ID);
             for (di, d) in input.devices.iter().enumerate() {
-                if states[offsets[di]..offsets[di] + counts[di]] != next[offsets[di]..offsets[di] + counts[di]] {
+                if states[offsets[di]..offsets[di] + counts[di]]
+                    != next[offsets[di]..offsets[di] + counts[di]]
+                {
                     o.diags.push(Diag::error(E_OSCILLATION, d.id, NO_ID));
                 }
             }

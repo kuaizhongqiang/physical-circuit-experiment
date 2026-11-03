@@ -105,11 +105,20 @@ fn parse_num(b: &[char], i: &mut usize) -> Result<Value, String> {
     if *i < b.len() && (b[*i] == '-' || b[*i] == '+') {
         *i += 1;
     }
-    while *i < b.len() && (b[*i].is_ascii_digit() || b[*i] == '.' || b[*i] == 'e' || b[*i] == 'E' || b[*i] == '-' || b[*i] == '+') {
+    while *i < b.len()
+        && (b[*i].is_ascii_digit()
+            || b[*i] == '.'
+            || b[*i] == 'e'
+            || b[*i] == 'E'
+            || b[*i] == '-'
+            || b[*i] == '+')
+    {
         *i += 1;
     }
     let s: String = b[start..*i].iter().collect();
-    s.parse::<f64>().map(Value::Num).map_err(|_| format!("非法数字 {}", s))
+    s.parse::<f64>()
+        .map(Value::Num)
+        .map_err(|_| format!("非法数字 {}", s))
 }
 
 fn parse_str(b: &[char], i: &mut usize) -> Result<String, String> {
@@ -248,9 +257,15 @@ pub fn parse_input(s: &str) -> Result<Input, String> {
         });
         input.config = c;
     }
-    let devs = v.get("devices").and_then(|x| x.as_arr()).ok_or("缺 devices")?;
+    let devs = v
+        .get("devices")
+        .and_then(|x| x.as_arr())
+        .ok_or("缺 devices")?;
     for d in devs {
-        let kind_s = d.get("kind").and_then(|x| x.as_str()).ok_or("器件缺 kind")?;
+        let kind_s = d
+            .get("kind")
+            .and_then(|x| x.as_str())
+            .ok_or("器件缺 kind")?;
         let kind = kind_from_name(kind_s).ok_or_else(|| format!("未知 kind {kind_s}"))?;
         let mut params = [0.0f64; 8];
         if let Some(ps) = d.get("params").and_then(|x| x.as_arr()) {

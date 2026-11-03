@@ -1,6 +1,8 @@
 //! fixture 驱动测试：每份 `fixtures/C*.json` 的 cases 逐条跑，比对期望值。
 //! 判据见 `docs/verification.md` §2（相对容差 1%，小量用绝对容差）。
 
+// 期望值块用两层 if-let 读更直观（先判键存在、再判是对象）：见 run_file 上的 allow
+
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
@@ -54,12 +56,15 @@ fn all_fixtures_pass() {
     println!("共跑 {total} 个 case");
 }
 
+#[allow(clippy::collapsible_match)]
 fn run_file(path: &std::path::Path) -> usize {
-    let text = std::fs::read_to_string(path).unwrap_or_else(|e| panic!("读不到 {}: {e}", path.display()));
+    let text =
+        std::fs::read_to_string(path).unwrap_or_else(|e| panic!("读不到 {}: {e}", path.display()));
     let v = json::parse(&text).unwrap_or_else(|e| panic!("{} JSON 解析失败: {e}", path.display()));
     let name = path.file_name().unwrap().to_string_lossy().to_string();
 
-    let base_input = json::parse_input(&text).unwrap_or_else(|e| panic!("{name} 网表解析失败: {e}"));
+    let base_input =
+        json::parse_input(&text).unwrap_or_else(|e| panic!("{name} 网表解析失败: {e}"));
 
     // ref → (id, terminal_base)
     let mut refs: BTreeMap<String, (u32, u32)> = BTreeMap::new();
@@ -95,7 +100,9 @@ fn run_file(path: &std::path::Path) -> usize {
             // set：按 ref 覆盖 state_bits / flags / elapsed_ms / rpm
             if let Some(Value::Obj(m)) = case.get("set") {
                 for (r, ov) in m {
-                    let (id, _) = *refs.get(r).unwrap_or_else(|| panic!("{name}/{description}: 未知 ref {r}"));
+                    let (id, _) = *refs
+                        .get(r)
+                        .unwrap_or_else(|| panic!("{name}/{description}: 未知 ref {r}"));
                     let d = input
                         .devices
                         .iter_mut()
@@ -118,13 +125,25 @@ fn run_file(path: &std::path::Path) -> usize {
             // 加线 / 删线
             if let Some(ws) = case.get("add_wires").and_then(|x| x.as_arr()) {
                 for w in ws {
-                    let a = w.as_arr().and_then(|a| a.first()).and_then(|x| x.as_u32()).unwrap();
-                    let b = w.as_arr().and_then(|a| a.get(1)).and_then(|x| x.as_u32()).unwrap();
+                    let a = w
+                        .as_arr()
+                        .and_then(|a| a.first())
+                        .and_then(|x| x.as_u32())
+                        .unwrap();
+                    let b = w
+                        .as_arr()
+                        .and_then(|a| a.get(1))
+                        .and_then(|x| x.as_u32())
+                        .unwrap();
                     input.wires.push(pcx_core::Wire { a, b });
                 }
             }
             if let Some(ds) = case.get("drop_wires").and_then(|x| x.as_arr()) {
-                let mut idx: Vec<usize> = ds.iter().filter_map(|x| x.as_u32()).map(|x| x as usize).collect();
+                let mut idx: Vec<usize> = ds
+                    .iter()
+                    .filter_map(|x| x.as_u32())
+                    .map(|x| x as usize)
+                    .collect();
                 idx.sort_unstable_by(|a, b| b.cmp(a));
                 for i in idx {
                     if i < input.wires.len() {
@@ -179,9 +198,9 @@ fn run_file(path: &std::path::Path) -> usize {
         if let Some(exp) = case.get("expect") {
             if let Value::Obj(m) = exp {
                 for (key, e) in m {
-                    let (r, idx) = key
-                        .split_once(':')
-                        .unwrap_or_else(|| panic!("{name}/{description}: 期望键 {key} 应形如 REF:序号"));
+                    let (r, idx) = key.split_once(':').unwrap_or_else(|| {
+                        panic!("{name}/{description}: 期望键 {key} 应形如 REF:序号")
+                    });
                     let (_, base) = *refs
                         .get(r)
                         .unwrap_or_else(|| panic!("{name}/{description}: 未知 ref {r}"));
@@ -195,12 +214,30 @@ fn run_file(path: &std::path::Path) -> usize {
                     if let Some(want_i) = e.get("i_rms").and_then(|x| x.as_f64()) {
                         let tol = e.get("tol").and_then(|x| x.as_f64()).unwrap_or(0.01);
                         let tol_abs = e.get("tol_abs").and_then(|x| x.as_f64()).unwrap_or(0.0);
-                        assert_close(&name, &description, key, "i_rms", got.i_rms, want_i, tol, tol_abs);
+                        assert_close(
+                            &name,
+                            &description,
+                            key,
+                            "i_rms",
+                            got.i_rms,
+                            want_i,
+                            tol,
+                            tol_abs,
+                        );
                     }
                     if let Some(want_v) = e.get("v_rms").and_then(|x| x.as_f64()) {
                         let tol = e.get("v_tol").and_then(|x| x.as_f64()).unwrap_or(0.01);
                         let tol_abs = e.get("v_tol_abs").and_then(|x| x.as_f64()).unwrap_or(0.0);
-                        assert_close(&name, &description, key, "v_rms", got.v_rms, want_v, tol, tol_abs);
+                        assert_close(
+                            &name,
+                            &description,
+                            key,
+                            "v_rms",
+                            got.v_rms,
+                            want_v,
+                            tol,
+                            tol_abs,
+                        );
                     }
                 }
             }
@@ -220,7 +257,16 @@ fn run_file(path: &std::path::Path) -> usize {
                     if let Some(want) = e.get("coil_i_rms").and_then(|x| x.as_f64()) {
                         let tol = e.get("tol").and_then(|x| x.as_f64()).unwrap_or(0.01);
                         let tol_abs = e.get("tol_abs").and_then(|x| x.as_f64()).unwrap_or(0.0);
-                        assert_close(&name, &description, r, "coil_i_rms", got.coil_i_rms, want, tol, tol_abs);
+                        assert_close(
+                            &name,
+                            &description,
+                            r,
+                            "coil_i_rms",
+                            got.coil_i_rms,
+                            want,
+                            tol,
+                            tol_abs,
+                        );
                     }
                 }
             }
