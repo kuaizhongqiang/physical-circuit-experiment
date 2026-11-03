@@ -3,7 +3,7 @@
 读者：AI / 负责人
 类型：计划
 权威：实施顺序、里程碑交付物、验收门禁的唯一事实源
-状态：2026-11-03 首版（口径对应 `DECISION.md` D-20261103-01…23；`TODO.md` §1 已无待拍板项）
+状态：2026-11-03 首版；**M0–M5 已全部执行完毕**，门禁执行结果见 §3.1（口径对应 `DECISION.md` D-20261103-01…30）
 依赖：`overview.md`、`architecture.md`、`solver.md`、`api.md`、`integration.md`、`verification.md`、`../TODO.md`
 
 ## 1 计划形态
@@ -17,12 +17,12 @@
 
 | 里程碑 | 目标 | 交付物 | 门禁 | 关联任务 |
 |---|---|---|---|---|
-| **M0** | 骨架与工具链 | workspace 三个 crate ＋ `.gitignore` ＋ 构建脚本 ＋ `cargo build/test` 跑通 | **G0** | T-01 T-03 T-07 |
-| **M1** | 内核最小垂直切片（只跑 C3） | `core` 八段全链路 ＋ C3 单网表可算 | **G1** | T-08 T-09 |
-| **M2** | 器件与案例铺满 | 15 类器件全实现 ＋ `fixtures/C1…C10` ＋ 反例用例 | **G2** | T-10 |
-| **M3** | 双端打通 | C ABI 定稿 ＋ C# 四件套 ＋ wasm 封装 ＋ 双端比对脚本 | **G3** | T-12 |
-| **M4** | 演示页（只做 C3） | `bindings/web/demo.*`，规格见 `demo.md` | **G4** | T-11 |
-| **M5** | 交付收口 | `AGENT.md` §4 实测命令回填 ＋ 二期清单 ＋ 首次 `R-01`…`R-NN` 齐账 | **G5** | T-13 |
+| **M0** ✅ | 骨架与工具链 | workspace 三个 crate ＋ `.gitignore` ＋ 构建脚本 ＋ `cargo build/test` 跑通 | **G0** | T-01 T-03 T-07 |
+| **M1** ✅ | 内核最小垂直切片（只跑 C3） | `core` 八段全链路 ＋ C3 单网表可算 | **G1** | T-08 T-09 |
+| **M2** ✅ | 器件与案例铺满 | 15 类器件全实现 ＋ `fixtures/C1…C10` ＋ 反例用例 | **G2** | T-10 |
+| **M3** ✅ | 双端打通 | C ABI 定稿 ＋ C# 四件套 ＋ wasm 封装 ＋ 双端比对脚本 | **G3** | T-12 |
+| **M4** ✅ | 演示页（只做 C3） | `bindings/web/demo.*`，规格见 `demo.md` | **G4** | T-11 |
+| **M5** ✅ | 交付收口 | `AGENT.md` §4 实测命令回填 ＋ 二期清单 ＋ 首次 `R-01`…`R-NN` 齐账 | **G5** | T-13 |
 
 ## 3 里程碑细则
 
@@ -113,6 +113,19 @@
 | M5.4 | 二期清单落 `TODO.md` §2 的下一批（B′、瞬时值、三维、移动端） |
 
 **门禁 G5**：新机器按 README 能一次跑通（`cargo test` ＋ Unity 样例 ＋ 打开演示页）；`docs/` 与代码无口径冲突。
+
+## 3.1 门禁执行结果（2026-11-03，最终）
+
+| 门禁 | 结论 | 证据 |
+|---|---|---|
+| **G0** | ✅ 通过 | `cargo build --workspace` / `cargo test` / `cargo build -p pcx-wasm --target wasm32-unknown-unknown` 三条真跑通；产物 `pcx_circuit.dll` 168 960 B、`pcx_wasm.wasm` 176 494 B |
+| **G1** | ✅ 通过 | `fixtures/C3.json` 7 个 case 全绿：初始 0 A、SB2 启动 5.02 A、自锁保持、SB3 停止、SB4 启动、缺参考 `E_NO_REFERENCE`、`L1-L2` 直连 `E_SHORT_CIRCUIT` |
+| **G2** | ✅ 通过 | 10 份 fixture / 28 个 case 全绿（含每类反例）；`cargo test --workspace` 无告警；打乱 `wires` 顺序结果不变（等势点按最小接点 id 重排） |
+| **G3** | ✅ 通过（C# 侧为编译校验） | `node scripts/compare.mjs` 28 个 case 与 fixture 期望逐条一致；`dotnet build bindings/csharp` 0 错误 0 警告；结构体字节数 88/40/24/16/8/64 由 `cargo test` 的布局断言守住。**Unity 内运行未做**（无 Unity 工程，交由负责人按 `integration.md` 接入验证） |
+| **G4** | ✅ 通过（人工） | 演示页由负责人在浏览器中逐项试用并确认：导线可见与红色、开关符号与开合、按下/抬起操作、自锁成立、删光重连、悬停五行数据、清空/恢复。逐条判据见 `demo.md` §10 / §10.1 |
+| **G5** | ✅ 通过 | `AGENT.md` §4 四条命令均为实测；三份 README 落地；三台账齐账；`node .agent/skills/doc-guard/check.mjs` 全过 |
+
+> 备查：`ci` 三个 job（`guard` / 内核构建与测试 / wasm 打包）在 PR #32、#33 上均为绿，`guard` 已是 `main` 的必需检查。
 
 ## 4 为什么是这个顺序
 

@@ -65,8 +65,8 @@ gh pr create --fill --base main --head docs/repo-init --body-file .git\PR_BODY.t
 
 ## 5 等 CI 绿再合并
 
-⚠️ **本仓库 push / pull_request 事件目前不产生运行**，PR 上看不到 check（详见 `../notes/github-actions-triggers.md`、
-`DECISION.md` D-20261103-27）。所以这一步要**手动**跑：
+正常情况下只需等自动检查（DECISION.md D-20261103-30 已恢复自动触发，guard 是必需检查）。
+**兜底**：若 PR 上看不到 check（现象与排查见 ../notes/github-actions-triggers.md），手动跑：
 
 ```powershell
 gh workflow run ci --ref <branch>      # 在该分支上手动跑一次
@@ -79,7 +79,7 @@ gh run watch <run-id>                  # 等到结束
 | `guard` 红 | 本地跑 `node .agent/skills/doc-guard/check.mjs` 修完再推 |
 | `rust` / `wasm` 红 | 修代码；M0 之前只会有 notice 跳过，那是预期 |
 | **红了还要合** | 不允许。判据不迁就实现（`01-milestone.md` §3） |
-| 自动触发恢复后 | `gh pr checks --watch` 即可，并把 `guard` 加回必需检查（`TODO.md` T-14） |
+| PR 上看不到 check | 先用 `gh api "repos/{owner}/{repo}/actions/runs?event=pull_request"` 确认是否真没跑；确实没跑再手动 dispatch |
 
 ## 6 合并
 
