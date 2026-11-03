@@ -1,0 +1,57 @@
+{
+  "case": "C2",
+  "baseline_source": "自建",
+  "note": "单控自锁：KM 13-14 自锁，FR 95-96 串在控制回路里。",
+  "strict_reference": true,
+  "config": { "v_line": 380, "freq_hz": 50 },
+
+  "devices": [
+    { "ref": "P1", "kind": "POWER", "id": 1, "terminal_base": 0, "params": [380, 50, 0.001, 1, 0, 0, 0, 0] },
+    { "ref": "FR1", "kind": "FR", "id": 2, "terminal_base": 4, "params": [0.001, 6, 5000, 0.001, 0, 0, 0, 0] },
+    { "ref": "SB1", "kind": "SB", "id": 3, "terminal_base": 14, "aux": 1, "state_bits": 1, "flags": 1,
+      "params": [0.001, 0, 0, 0, 0, 0, 0, 0] },
+    { "ref": "SB2", "kind": "SB", "id": 4, "terminal_base": 18, "aux": 2, "state_bits": 0, "flags": 1,
+      "params": [0.001, 0, 0, 0, 0, 0, 0, 0] },
+    { "ref": "KM1", "kind": "KM", "id": 5, "terminal_base": 22, "aux": 5,
+      "params": [12000, 8000, 0.02, 0.012, 0.001, 0, 0, 0] },
+    { "ref": "M1", "kind": "M", "id": 6, "terminal_base": 34, "params": [40, 18, 0, 0, 0, 0, 0, 0] },
+    { "ref": "PE1", "kind": "PE", "id": 7, "terminal_base": 40, "params": [0, 0, 0, 0, 0, 0, 0, 0] }
+  ],
+
+  "wires": [
+    { "a": 0, "b": 4, "note": "P1.L1 → FR1.1" },
+    { "a": 1, "b": 6, "note": "P1.L2 → FR1.3" },
+    { "a": 2, "b": 8, "note": "P1.L3 → FR1.5" },
+    { "a": 5, "b": 24, "note": "FR1.2 → KM1.1" },
+    { "a": 7, "b": 26, "note": "FR1.4 → KM1.3" },
+    { "a": 9, "b": 28, "note": "FR1.6 → KM1.5" },
+    { "a": 25, "b": 34, "note": "KM1.2 → M1.U1" },
+    { "a": 27, "b": 35, "note": "KM1.4 → M1.V1" },
+    { "a": 29, "b": 36, "note": "KM1.6 → M1.W1" },
+    { "a": 37, "b": 38, "note": "星点 U2-V2" },
+    { "a": 38, "b": 39, "note": "星点 V2-W2" },
+    { "a": 3, "b": 40, "note": "P1.N → PE1" },
+    { "a": 0, "b": 10, "note": "P1.L1 → FR1.95" },
+    { "a": 11, "b": 14, "note": "FR1.96 → SB1.1" },
+    { "a": 15, "b": 20, "note": "SB1.2 → SB2.3（节点 X）" },
+    { "a": 15, "b": 30, "note": "节点 X → KM1.13（自锁）" },
+    { "a": 21, "b": 22, "note": "SB2.4 → KM1.A1（节点 Y）" },
+    { "a": 31, "b": 22, "note": "KM1.14 → KM1.A1（节点 Y）" },
+    { "a": 23, "b": 1, "note": "KM1.A2 → P1.L2" }
+  ],
+
+  "cases": [
+    {
+      "name": "按启动后松开：自锁维持 5.02 A",
+      "set": { "SB2": { "state_bits": 0, "flags": 1 }, "KM1": { "state_bits": 15, "flags": 0 } },
+      "expect": { "M1:0": { "i_rms": 5.0156, "tol": 0.01 } },
+      "expect_devices": { "KM1": { "coil_i_rms": 0.026348, "tol": 0.02 } }
+    },
+    {
+      "name": "按停止 SB1：全断",
+      "set": { "SB1": { "state_bits": 0, "flags": 1 }, "KM1": { "state_bits": 15, "flags": 0 } },
+      "expect": { "M1:0": { "i_rms": 0.0, "tol_abs": 0.001 } },
+      "expect_devices": { "KM1": { "coil_i_rms": 0.0, "tol_abs": 0.0001 } }
+    }
+  ]
+}

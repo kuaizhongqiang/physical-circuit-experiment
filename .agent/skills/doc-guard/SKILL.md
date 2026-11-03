@@ -31,7 +31,7 @@ node .agent/skills/doc-guard/check.mjs
 | 3 | `TODO.md` 的 `T-NN` / `P-NN` 编号不重复 | 编号重复会让 RECORD 与提交信息对不上账 |
 | 4 | `DECISION.md` 的 `D-YYYYMMDD-NN` 不重复 | 同上；DECISION 只追加不改，重复即事故 |
 | 5 | `RECORD.md` 的 `R-NN` 不重复 | 同上 |
-| 6 | `fixtures/*.json` 必含 `case` / `baseline_source` / `devices` / `wires` / `expect`，且恰好一个 `PE` | fixture 是判据，缺字段等于判据不成立 |
+| 6 | `fixtures/*.json` 必含 `case` / `baseline_source` / `devices` / `wires`，且含非空 `expect` 或 `cases`，并恰好一个 `PE` | fixture 是判据，缺字段等于判据不成立 |
 | 7 | 工作树里**没有被跟踪的**产物（`*.dll` / `*.wasm` / `target/` / `pkg/` / `dist/`） | 二进制入库不可逆 |
 
 ## 不检查什么

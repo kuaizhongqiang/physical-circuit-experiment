@@ -1,0 +1,71 @@
+{
+  "case": "C4",
+  "baseline_source": "自建",
+  "note": "正反转：两只接触器换相序，互为电气互锁（对方常闭串进自己线圈）。",
+  "strict_reference": true,
+  "config": { "v_line": 380, "freq_hz": 50 },
+
+  "devices": [
+    { "ref": "P1", "kind": "POWER", "id": 1, "terminal_base": 0, "params": [380, 50, 0.001, 1, 0, 0, 0, 0] },
+    { "ref": "SB1", "kind": "SB", "id": 2, "terminal_base": 4, "aux": 1, "state_bits": 1, "flags": 1, "params": [0.001, 0, 0, 0, 0, 0, 0, 0] },
+    { "ref": "SB2", "kind": "SB", "id": 3, "terminal_base": 8, "aux": 2, "state_bits": 0, "flags": 1, "params": [0.001, 0, 0, 0, 0, 0, 0, 0] },
+    { "ref": "SB3", "kind": "SB", "id": 4, "terminal_base": 12, "aux": 2, "state_bits": 0, "flags": 1, "params": [0.001, 0, 0, 0, 0, 0, 0, 0] },
+    { "ref": "KM1", "kind": "KM", "id": 5, "terminal_base": 16, "aux": 5, "params": [12000, 8000, 0.02, 0.012, 0.001, 0, 0, 0] },
+    { "ref": "KM2", "kind": "KM", "id": 6, "terminal_base": 28, "aux": 5, "params": [12000, 8000, 0.02, 0.012, 0.001, 0, 0, 0] },
+    { "ref": "M1", "kind": "M", "id": 7, "terminal_base": 40, "params": [40, 18, 0, 0, 0, 0, 0, 0] },
+    { "ref": "PE1", "kind": "PE", "id": 8, "terminal_base": 46, "params": [0, 0, 0, 0, 0, 0, 0, 0] }
+  ],
+
+  "wires": [
+    { "a": 0, "b": 18, "note": "L1 → KM1.1（正转）" },
+    { "a": 1, "b": 20, "note": "L2 → KM1.3" },
+    { "a": 2, "b": 22, "note": "L3 → KM1.5" },
+    { "a": 19, "b": 40, "note": "KM1.2 → M1.U1" },
+    { "a": 21, "b": 41, "note": "KM1.4 → M1.V1" },
+    { "a": 23, "b": 42, "note": "KM1.6 → M1.W1" },
+    { "a": 0, "b": 34, "note": "L1 → KM2.5（反转，换 L1/L3）" },
+    { "a": 35, "b": 40, "note": "KM2.6 → M1.U1" },
+    { "a": 1, "b": 32, "note": "L2 → KM2.3" },
+    { "a": 33, "b": 41, "note": "KM2.4 → M1.V1" },
+    { "a": 2, "b": 30, "note": "L3 → KM2.1" },
+    { "a": 31, "b": 42, "note": "KM2.2 → M1.W1" },
+    { "a": 43, "b": 44, "note": "星点 U2-V2" },
+    { "a": 44, "b": 45, "note": "星点 V2-W2" },
+    { "a": 3, "b": 46, "note": "P1.N → PE1" },
+    { "a": 0, "b": 4, "note": "L1 → SB1.1（停止）" },
+    { "a": 5, "b": 10, "note": "SB1.2 → SB2.3（节点 X）" },
+    { "a": 5, "b": 14, "note": "SB1.2 → SB3.3（节点 X）" },
+    { "a": 11, "b": 38, "note": "SB2.4 → KM2.21（互锁：对方常闭）" },
+    { "a": 39, "b": 16, "note": "KM2.22 → KM1.A1" },
+    { "a": 17, "b": 1, "note": "KM1.A2 → L2" },
+    { "a": 15, "b": 26, "note": "SB3.4 → KM1.21（互锁）" },
+    { "a": 27, "b": 28, "note": "KM1.22 → KM2.A1" },
+    { "a": 29, "b": 1, "note": "KM2.A2 → L2" }
+  ],
+
+  "cases": [
+    {
+      "name": "按正转：KM1 吸合，相序 L1→U1",
+      "set": { "SB2": { "state_bits": 2, "flags": 1 } },
+      "expect": { "M1:0": { "i_rms": 5.0156, "tol": 0.01 } },
+      "expect_devices": { "KM1": { "coil_i_rms": 0.026348, "tol": 0.02 }, "KM2": { "coil_i_rms": 0.0, "tol_abs": 0.0001 } }
+    },
+    {
+      "name": "按反转：KM2 吸合，相序换相",
+      "set": { "SB3": { "state_bits": 2, "flags": 1 } },
+      "expect": { "M1:0": { "i_rms": 5.0156, "tol": 0.01 } },
+      "expect_devices": { "KM2": { "coil_i_rms": 0.026348, "tol": 0.02 }, "KM1": { "coil_i_rms": 0.0, "tol_abs": 0.0001 } }
+    },
+    {
+      "name": "同时按下：互锁生效，只有先吸合者得电",
+      "set": {
+        "SB2": { "state_bits": 2, "flags": 1 },
+        "SB3": { "state_bits": 2, "flags": 1 },
+        "KM1": { "state_bits": 15, "flags": 0 }
+      },
+      "expect_code": "OK",
+      "expect": { "M1:0": { "i_rms": 5.0156, "tol": 0.01 } },
+      "expect_devices": { "KM1": { "coil_i_rms": 0.026348, "tol": 0.02 }, "KM2": { "coil_i_rms": 0.0, "tol_abs": 0.0001 } }
+    }
+  ]
+}

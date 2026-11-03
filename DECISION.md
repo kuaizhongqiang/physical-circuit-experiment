@@ -3,7 +3,7 @@
 读者：AI / 负责人
 类型：台账
 权威：负责人已定口径的唯一清单
-状态：2026-11-03 建立；首批 11 条（原 P-01…P-11）＋ 第二批 6 条（原 P-12…P-17）＋ 第三批 5 条（原 P-18…P-21 ＋ 短路细化）＋ 第四批 3 条（P-22 处置 ＋ 演示页范围 ＋ 参考点三分类）＋ 第五批 2 条（仓库流程 PR 化 ＋ 分支保护让步）
+状态：2026-11-03 建立；首批 11 条（原 P-01…P-11）＋ 第二批 6 条（原 P-12…P-17）＋ 第三批 5 条（原 P-18…P-21 ＋ 短路细化）＋ 第四批 3 条（P-22 处置 ＋ 演示页范围 ＋ 参考点三分类）＋ 第五批 2 条（仓库流程 PR 化 ＋ 分支保护让步）＋ 第六批 1 条（Web 端 JSON 门面）
 依赖：`TODO.md` §1（未拍板项在那边，拍板后转到这里）
 
 ## 0 写法
@@ -220,3 +220,11 @@
 - **决定**：分支保护保留 **必需 PR ＋ 禁强推 ＋ 禁删除**，**暂时去掉必需状态检查**；CI 改为**合并前手动验证**：`gh workflow run ci --ref <branch>` ＋ `gh run watch`。D-20261103-26 的实质（所有改动必须走 PR ＋ squash merge）**不变**，只是检查从"平台强制"退为"流程强制"。
 - **恢复条件**：push / pull_request 事件能正常产生运行时，把 `guard` 加回必需检查（`TODO.md` T-14）。届时 `ci.yml` 无需改动 —— `on.push` 已去掉分支过滤、`on.pull_request` 已显式列 types。
 - 应对：`AGENT.md` §3 改为"PR 必需 ＋ CI 手动跑"；`.agent/workflows/02-commit.md` 增加手动触发段；新增笔记 `.agent/notes/github-actions-triggers.md` 记录现象与排查路径。
+
+### D-20261103-28 Web 绑定层给 JSON 门面，内核与 C ABI 仍走结构体（我方代定）
+
+- **定了什么**：`crates/wasm` 导出 `pcx_solve_json(ptr, len)` / `pcx_result_ptr()` / `pcx_alloc` / `pcx_free`，JS 只搬字符串；DLL 侧仍是 `docs/api.md` 的结构体 ABI，两者共用同一个 `core`。
+- **为什么允许 JSON**：D-20261103-07 的"结构体不用 JSON"约束的是**内核与 C ABI**；Web 侧没有 P/Invoke，手写 `DataView` 把 65 个接点逐字段填进去的出错概率远高于序列化开销。JSON **只存在于绑定层**，内核里没有任何 JSON 解析（`core::json` 仅服务 fixture 与测试，不参与 ABI）。
+- **结果结构扩展**：`core::TerminalResult` 增加 `node`（等势点编号）/ `comp`（0 有源、1 无源孤立、2 单接点）/ `comp_size`，只出现在 JSON 里；**C 结构体仍是 40 字节**（`docs/api.md` §2.5 不变）。
+- **演示页调用模式**：`strict_reference = false`（宽松模式），这样"清空全部导线"仍能出数；正式网表（fixtures / Unity 样例）一律严格模式。
+- 应对：`docs/api.md` §7 记录 JSON 门面字段；`docs/integration.md` §5 补脚本入口；`bindings/web/pcx.js` 为唯一 JS 入参出口。

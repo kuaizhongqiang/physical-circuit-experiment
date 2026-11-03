@@ -1,0 +1,14 @@
+[package]
+name = "pcx-cabi"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "pcx_circuit 的 C ABI 边界（供 Unity P/Invoke）"
+
+[lib]
+name = "pcx_circuit"
+crate-type = ["cdylib", "staticlib"]
+
+[dependencies]
+pcx-core = { workspace = true }

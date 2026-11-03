@@ -3,7 +3,7 @@
 读者：AI
 类型：纪律
 权威：本工程**唯一**"有内容"的 agent 手册；**只写纪律与索引，不写描述**
-状态：2026-11-03 建立（口径已拍板 26 条、编号至 D-20261103-27；`docs/` 9 份文档首版完成；代码骨架未落地，里程碑见 `docs/roadmap.md`，待办见 `TODO.md` §2）
+状态：2026-11-03 建立（口径已拍板 27 条、编号至 D-20261103-28；`docs/` 9 份文档首版完成；代码骨架未落地，里程碑见 `docs/roadmap.md`，待办见 `TODO.md` §2）
 依赖：`docs/`（工程内容事实源）、`docs/raw/`（只读原始需求）、`TODO.md` / `DECISION.md` / `RECORD.md`（三份台账）
 
 本文件只写**做什么 / 不许做什么 / 去哪查**。工程是什么、电路怎么算、元器件怎么建模 —— 一律查 `docs/`，本文件**不复述**。
@@ -63,9 +63,17 @@
 
 ## 4 验证与操作命令
 
-- **工具链现状（2026-11-03 实测）**：`cargo 1.95.0` / `rustc 1.95.0`；已装目标 `x86_64-pc-windows-msvc`、`x86_64-pc-windows-gnu`；**`wasm32-unknown-unknown` 与 `wasm-pack` 未装**（见 `TODO.md` T-03）。
-- **工程骨架尚未落地**（`TODO.md` T-07），故 `cargo build` / `cargo test` 对本仓库现在必失败。脚手架与首个黄金案例落地后，在此补"构建 / 单测 / 跑单个用例 / wasm 打包"四条命令并附本机实测输出；**补齐前禁止写未跑通的命令**。
-- 验收基线（骨架落地后生效）：`cargo build` 0 error ＋ `cargo test` 全绿 ＋ 同一网表在 DLL 侧与 Web 侧结果一致（见 §2「双端等价」）。
+- **工具链（2026-11-03 实测）**：`cargo 1.95.0` / `rustc 1.95.0`；目标 `x86_64-pc-windows-msvc` 与 `wasm32-unknown-unknown` 均已安装。**不需要 wasm-pack** —— wasm 侧用手写 C ABI ＋ `WebAssembly.instantiate` 直载，零外部依赖。
+- **命令（全部已实测跑通）**：
+  - `cargo test --workspace` —— 内核单测（cabi 布局断言 2 个）＋ fixture 驱动测试（10 份 fixture / 28 个 case）
+  - `cargo build -p pcx-cabi --release --target x86_64-pc-windows-msvc` → `target/x86_64-pc-windows-msvc/release/pcx_circuit.dll`
+  - `cargo build -p pcx-wasm --release --target wasm32-unknown-unknown` → `target/wasm32-unknown-unknown/release/pcx_wasm.wasm`
+  - `node scripts/build.mjs` —— 上面两条 ＋ 把 wasm 拷到 `bindings/web/pkg/`
+  - 跑单个测试：`cargo test -p pcx-core --test fixtures -- --nocapture`
+  - 双端比对：`node scripts/compare.mjs`（wasm 侧 28 个 case 与 fixture 期望逐条比对）
+  - 演示页：`node scripts/serve.mjs` → `http://localhost:8080/bindings/web/demo.html`
+  - C# 编译校验：`dotnet build bindings/csharp -v q`（netstandard2.1，0 警告 0 错误）
+- 验收基线：`cargo test --workspace` 全绿 ＋ `node scripts/compare.mjs` 通过 ＋ `dotnet build` 0 错误（见 §2「双端等价」）。
 - 仓库操作：
   - `git --no-pager status --short`
   - `git add <具体路径>`

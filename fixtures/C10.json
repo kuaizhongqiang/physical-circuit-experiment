@@ -1,0 +1,61 @@
+{
+  "case": "C10",
+  "baseline_source": "自建",
+  "note": "顺序控制：第一台运行到位后 SQ 动作，才允许第二台启动。",
+  "strict_reference": true,
+  "config": { "v_line": 380, "freq_hz": 50 },
+
+  "devices": [
+    { "ref": "P1", "kind": "POWER", "id": 1, "terminal_base": 0, "params": [380, 50, 0.001, 1, 0, 0, 0, 0] },
+    { "ref": "SQ1", "kind": "SQ", "id": 2, "terminal_base": 4, "aux": 3, "state_bits": 1, "flags": 1, "params": [0.001, 0, 0, 0, 0, 0, 0, 0] },
+    { "ref": "KM1", "kind": "KM", "id": 3, "terminal_base": 8, "aux": 5, "params": [12000, 8000, 0.02, 0.012, 0.001, 0, 0, 0] },
+    { "ref": "KM2", "kind": "KM", "id": 4, "terminal_base": 20, "aux": 5, "params": [12000, 8000, 0.02, 0.012, 0.001, 0, 0, 0] },
+    { "ref": "M1", "kind": "M", "id": 5, "terminal_base": 32, "params": [40, 18, 0, 0, 0, 0, 0, 0] },
+    { "ref": "M2", "kind": "M", "id": 6, "terminal_base": 38, "params": [40, 18, 0, 0, 0, 0, 0, 0] },
+    { "ref": "PE1", "kind": "PE", "id": 7, "terminal_base": 44, "params": [0, 0, 0, 0, 0, 0, 0, 0] }
+  ],
+
+  "wires": [
+    { "a": 0, "b": 10, "note": "L1 → KM1.1" },
+    { "a": 1, "b": 12, "note": "L2 → KM1.3" },
+    { "a": 2, "b": 14, "note": "L3 → KM1.5" },
+    { "a": 11, "b": 32, "note": "KM1.2 → M1.U1" },
+    { "a": 13, "b": 33, "note": "KM1.4 → M1.V1" },
+    { "a": 15, "b": 34, "note": "KM1.6 → M1.W1" },
+    { "a": 35, "b": 36, "note": "M1 星点 U2-V2" },
+    { "a": 36, "b": 37, "note": "M1 星点 V2-W2" },
+    { "a": 0, "b": 22, "note": "L1 → KM2.1" },
+    { "a": 1, "b": 24, "note": "L2 → KM2.3" },
+    { "a": 2, "b": 26, "note": "L3 → KM2.5" },
+    { "a": 23, "b": 38, "note": "KM2.2 → M2.U1" },
+    { "a": 25, "b": 39, "note": "KM2.4 → M2.V1" },
+    { "a": 27, "b": 40, "note": "KM2.6 → M2.W1" },
+    { "a": 41, "b": 42, "note": "M2 星点 U2-V2" },
+    { "a": 42, "b": 43, "note": "M2 星点 V2-W2" },
+    { "a": 3, "b": 44, "note": "P1.N → PE1" },
+    { "a": 0, "b": 8, "note": "L1 → KM1.A1" },
+    { "a": 9, "b": 1, "note": "KM1.A2 → L2" },
+    { "a": 0, "b": 6, "note": "L1 → SQ1.3" },
+    { "a": 7, "b": 20, "note": "SQ1.4 → KM2.A1" },
+    { "a": 21, "b": 1, "note": "KM2.A2 → L2" }
+  ],
+
+  "cases": [
+    {
+      "name": "SQ 未到位：只有第一台运行",
+      "set": { "SQ1": { "state_bits": 1, "flags": 1 } },
+      "expect": {
+        "M1:0": { "i_rms": 5.0156, "tol": 0.01 },
+        "M2:0": { "i_rms": 0.0, "tol_abs": 0.001 }
+      }
+    },
+    {
+      "name": "SQ 动作：第二台启动",
+      "set": { "SQ1": { "state_bits": 2, "flags": 1 } },
+      "expect": {
+        "M1:0": { "i_rms": 5.0156, "tol": 0.01 },
+        "M2:0": { "i_rms": 5.0156, "tol": 0.01 }
+      }
+    }
+  ]
+}

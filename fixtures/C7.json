@@ -1,0 +1,53 @@
+{
+  "case": "C7",
+  "baseline_source": "自建",
+  "note": "变速（双速电机）：两套绕组各一台 M 器件，切换接触器选择。",
+  "strict_reference": true,
+  "config": { "v_line": 380, "freq_hz": 50 },
+
+  "devices": [
+    { "ref": "P1", "kind": "POWER", "id": 1, "terminal_base": 0, "params": [380, 50, 0.001, 1, 0, 0, 0, 0] },
+    { "ref": "KM1", "kind": "KM", "id": 2, "terminal_base": 4, "aux": 5, "params": [12000, 8000, 0.02, 0.012, 0.001, 0, 0, 0] },
+    { "ref": "KM2", "kind": "KM", "id": 3, "terminal_base": 16, "aux": 5, "params": [12000, 8000, 0.02, 0.012, 0.001, 0, 0, 0] },
+    { "ref": "M1", "kind": "M", "id": 4, "terminal_base": 28, "shaft_group": 1, "params": [40, 18, 0, 0, 0, 0, 0, 0] },
+    { "ref": "M2", "kind": "M", "id": 5, "terminal_base": 34, "shaft_group": 1, "params": [25, 12, 0, 0, 0, 0, 0, 0] },
+    { "ref": "PE1", "kind": "PE", "id": 6, "terminal_base": 40, "params": [0, 0, 0, 0, 0, 0, 0, 0] }
+  ],
+
+  "wires": [
+    { "a": 0, "b": 6, "note": "L1 → KM1.1（低速）" },
+    { "a": 1, "b": 8, "note": "L2 → KM1.3" },
+    { "a": 2, "b": 10, "note": "L3 → KM1.5" },
+    { "a": 7, "b": 28, "note": "KM1.2 → M1.U1" },
+    { "a": 9, "b": 29, "note": "KM1.4 → M1.V1" },
+    { "a": 11, "b": 30, "note": "KM1.6 → M1.W1" },
+    { "a": 31, "b": 32, "note": "M1 星点 U2-V2" },
+    { "a": 32, "b": 33, "note": "M1 星点 V2-W2" },
+    { "a": 0, "b": 18, "note": "L1 → KM2.1（高速）" },
+    { "a": 1, "b": 20, "note": "L2 → KM2.3" },
+    { "a": 2, "b": 22, "note": "L3 → KM2.5" },
+    { "a": 19, "b": 34, "note": "KM2.2 → M2.U1" },
+    { "a": 21, "b": 35, "note": "KM2.4 → M2.V1" },
+    { "a": 23, "b": 36, "note": "KM2.6 → M2.W1" },
+    { "a": 37, "b": 38, "note": "M2 星点 U2-V2" },
+    { "a": 38, "b": 39, "note": "M2 星点 V2-W2" },
+    { "a": 3, "b": 40, "note": "P1.N → PE1" },
+    { "a": 0, "b": 4, "note": "L1 → KM1.A1（低速线圈）" },
+    { "a": 5, "b": 1, "note": "KM1.A2 → L2" },
+    { "a": 0, "b": 16, "note": "L1 → KM2.A1（高速线圈）" },
+    { "a": 17, "b": 1, "note": "KM2.A2 → L2" }
+  ],
+
+  "cases": [
+    {
+      "name": "低速绕组：5.02 A，高速绕组无电",
+      "drop_wires": [19, 20],
+      "expect": { "M1:0": { "i_rms": 5.0156, "tol": 0.01 }, "M2:0": { "i_rms": 0.0, "tol_abs": 0.001 } }
+    },
+    {
+      "name": "高速绕组：7.93 A，低速绕组无电",
+      "drop_wires": [17, 18],
+      "expect": { "M2:0": { "i_rms": 7.933, "tol": 0.01 }, "M1:0": { "i_rms": 0.0, "tol_abs": 0.001 } }
+    }
+  ]
+}

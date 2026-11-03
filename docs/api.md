@@ -216,7 +216,19 @@ rc = pcx_solve(&in, &out);
 - **二期瞬时值**：新增结构体 ＋ 新函数，**不改一期结构体字段语义**；因此二期上线后，只用一期的调用方无需改代码。
 - 结构体只允许**末尾追加字段 ＋ 升版本**；已有字段的含义与偏移永不变动。
 
-## 7 并发与确定性
+## 7 JSON 门面（仅 Web 绑定层，D-20261103-28）
+
+`crates/wasm` 额外导出 `pcx_solve_json(ptr, len)`＋`pcx_result_ptr()`，供 JS 直接传 JSON 字符串。**这里描述的是绑定层协议，不是 C ABI**；DLL 侧仍用 §2 的结构体。
+
+输入：`{ strict_reference, config{}, devices[]{ref?,kind,id,terminal_base,aux,params[8],state_bits?,flags?,elapsed_ms?,rpm?,shaft_group?}, wires[]{a,b}, requested_terminals?, requested_devices? }`
+其中 `kind` 用字符串名（`POWER`/`QS`/`FU`/`KM`/`KA`/`KT`/`KS`/`FR`/`SB`/`SQ`/`M`/`R`/`EL`/`TB`/`PE`）。
+
+输出：`{ code, node_count, terminals[{id,flags,v_rms,v_deg,i_rms,i_deg,node,comp,comp_size}], devices[{id,closed_bits,flags,coil_i_rms,coil_i_deg}], diags[{code,level,device_id,terminal_id}] }`
+
+- `node` / `comp` / `comp_size` **只存在于 JSON**，用于演示页显示"等势点 + 连通分量"，C 结构体保持 40 字节不变。
+- `comp`：`0` = 有源、`1` = 无源孤立、`2` = 单接点。
+
+## 8 并发与确定性
 
 - 无全局状态 → 多个线程可各自调用 `pcx_solve`；同一 `pcx_output_t` 不得并发写。
 - 同一输入（字节级相同）必须得到**字节级相同**的输出（`AGENT.md` §2 确定性）；`fixtures/` 回归比对的就是结果数组的字节。

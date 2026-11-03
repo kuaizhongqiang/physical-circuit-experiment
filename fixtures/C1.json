@@ -1,0 +1,49 @@
+{
+  "case": "C1",
+  "baseline_source": "自建",
+  "note": "点动（点控）：按住 SB 转，松开停。最小自锁前形态。",
+  "strict_reference": true,
+  "config": { "v_line": 380, "freq_hz": 50 },
+
+  "devices": [
+    { "ref": "P1", "kind": "POWER", "id": 1, "terminal_base": 0, "params": [380, 50, 0.001, 1, 0, 0, 0, 0] },
+    { "ref": "SB1", "kind": "SB", "id": 2, "terminal_base": 4, "aux": 2, "state_bits": 0, "flags": 1,
+      "params": [0.001, 0, 0, 0, 0, 0, 0, 0] },
+    { "ref": "KM1", "kind": "KM", "id": 3, "terminal_base": 8, "aux": 5,
+      "params": [12000, 8000, 0.02, 0.012, 0.001, 0, 0, 0] },
+    { "ref": "M1", "kind": "M", "id": 4, "terminal_base": 20, "params": [40, 18, 0, 0, 0, 0, 0, 0] },
+    { "ref": "PE1", "kind": "PE", "id": 5, "terminal_base": 26, "params": [0, 0, 0, 0, 0, 0, 0, 0] }
+  ],
+
+  "wires": [
+    { "a": 0, "b": 10, "note": "P1.L1 → KM1.1" },
+    { "a": 1, "b": 12, "note": "P1.L2 → KM1.3" },
+    { "a": 2, "b": 14, "note": "P1.L3 → KM1.5" },
+    { "a": 11, "b": 20, "note": "KM1.2 → M1.U1" },
+    { "a": 13, "b": 21, "note": "KM1.4 → M1.V1" },
+    { "a": 15, "b": 22, "note": "KM1.6 → M1.W1" },
+    { "a": 23, "b": 24, "note": "M1.U2-V2 星点" },
+    { "a": 24, "b": 25, "note": "M1.V2-W2 星点" },
+    { "a": 3, "b": 26, "note": "P1.N → PE1" },
+    { "a": 0, "b": 6, "note": "P1.L1 → SB1.3" },
+    { "a": 7, "b": 8, "note": "SB1.4 → KM1.A1" },
+    { "a": 9, "b": 1, "note": "KM1.A2 → P1.L2" }
+  ],
+
+  "cases": [
+    {
+      "name": "初始：SB 松开",
+      "expect": { "M1:0": { "i_rms": 0.0, "tol_abs": 0.001 } },
+      "expect_devices": { "KM1": { "coil_i_rms": 0.0, "tol_abs": 0.0001 } }
+    },
+    {
+      "name": "按住 SB1：电机 5.02 A、线圈 26.35 mA",
+      "set": { "SB1": { "state_bits": 2, "flags": 1 } },
+      "expect": {
+        "M1:0": { "i_rms": 5.0156, "tol": 0.01 },
+        "M1:1": { "i_rms": 5.0156, "tol": 0.01 }
+      },
+      "expect_devices": { "KM1": { "coil_i_rms": 0.026348, "tol": 0.02 } }
+    }
+  ]
+}
