@@ -79,8 +79,19 @@ jobs:
         if: steps.ws.outputs.present == '0'
         shell: bash
         run: echo "::notice title=跳过::crates/wasm 未建立，跳过 wasm 打包"
-      - name: wasm-pack build
+      - name: cargo build (wasm)
+        if: steps.ws.outputs.present == '1'
+        run: cargo build -p pcx-wasm --release --target wasm32-unknown-unknown
+      - name: 产物落位到 bindings/web/pkg
         if: steps.ws.outputs.present == '1'
         run: |
-          curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
-          wasm-pack build crates/wasm --target web --out-dir ../../bindings/web/pkg
+          mkdir -p bindings/web/pkg
+          cp target/wasm32-unknown-unknown/release/pcx_wasm.wasm bindings/web/pkg/pcx_circuit.wasm
+          ls -l bindings/web/pkg/pcx_circuit.wasm
+      - uses: actions/setup-node@v4
+        if: steps.ws.outputs.present == '1'
+        with:
+          node-version: "20"
+      - name: 双端比对（wasm 侧逐条核对 fixtures）
+        if: steps.ws.outputs.present == '1'
+        run: node scripts/compare.mjs
