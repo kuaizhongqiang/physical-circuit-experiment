@@ -113,7 +113,7 @@ node .agent/skills/doc-guard/check.mjs
 
 ## 发布
 
-版本从 `v0.0.0` 起。**tag 必须与 `Cargo.toml` 的 `version` 一致**，流水线会校验，不一致直接失败。
+当前版本 **v0.0.0**（2026-11-03 首发）。版本从 `v0.0.0` 起。**tag 必须与 `Cargo.toml` 的 `version` 一致**，流水线会校验，不一致直接失败。
 
 ```bash
 gh workflow run release.yml -f version=v0.0.0   # 或 git push origin v0.0.0
