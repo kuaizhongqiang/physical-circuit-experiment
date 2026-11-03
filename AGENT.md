@@ -3,7 +3,7 @@
 读者：AI
 类型：纪律
 权威：本工程**唯一**"有内容"的 agent 手册；**只写纪律与索引，不写描述**
-状态：2026-11-03 建立（口径已拍板 29 条、编号至 D-20261103-30；`docs/` 9 份文档；**M0–M5 全部完成**，剩余为二期清单，见 `docs/roadmap.md` §6）
+状态：2026-11-03 建立（口径已拍板 30 条、编号至 D-20261103-31；`docs/` 9 份文档；**M0–M5 全部完成**，剩余为二期清单，见 `docs/roadmap.md` §6）
 依赖：`docs/`（工程内容事实源）、`docs/raw/`（只读原始需求）、`TODO.md` / `DECISION.md` / `RECORD.md`（三份台账）
 
 本文件只写**做什么 / 不许做什么 / 去哪查**。工程是什么、电路怎么算、元器件怎么建模 —— 一律查 `docs/`，本文件**不复述**。
@@ -73,6 +73,7 @@
   - 双端比对：`node scripts/compare.mjs`（wasm 侧 28 个 case 与 fixture 期望逐条比对）
   - 演示页：`node scripts/serve.mjs` → `http://localhost:8080/bindings/web/demo.html`
   - C# 编译校验：`dotnet build bindings/csharp -v q`（netstandard2.1，0 警告 0 错误）
+  - **发布**：`gh workflow run release.yml -f version=vX.Y.Z` —— tag 必须等于 `Cargo.toml` 的 `version`，否则流水线报错；产物挂 GitHub Release，不入库（`.agent/workflows/05-release.md`）
 - 验收基线：`cargo test --workspace` 全绿 ＋ `node scripts/compare.mjs` 通过 ＋ `dotnet build` 0 错误（见 §2「双端等价」）。
 - 仓库操作：
   - `git --no-pager status --short`

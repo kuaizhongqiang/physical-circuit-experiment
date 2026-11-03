@@ -1,0 +1,133 @@
+name: release
+
+# 发布流水线：打 tag（或手动 dispatch）→ 全量校验 → 打包两端四件套 → 建 GitHub Release。
+# 版本口径：tag 必须与 Cargo.toml 的 [workspace.package].version 一致，否则失败。
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "要发布的版本号（形如 v0.0.0，且必须等于 Cargo.toml 的 version）"
+        required: true
+        default: "v0.0.0"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.event.inputs.version || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    # 同时要 msvc 的 DLL 与 wasm32 产物，用 windows runner
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+          targets: wasm32-unknown-unknown
+
+      - name: 解析版本号
+        id: v
+        shell: bash
+        run: |
+          tag="${{ github.event.inputs.version }}"
+          if [ -z "$tag" ]; then tag="${{ github.ref_name }}"; fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "num=${tag#v}" >> "$GITHUB_OUTPUT"
+
+      - name: 版本一致性检查（tag ⇔ Cargo.toml）
+        shell: bash
+        run: |
+          want="${{ steps.v.outputs.num }}"
+          got=$(grep -m1 '^version' Cargo.toml | sed -E 's/.*"([^"]+)".*/\1/')
+          echo "tag=${{ steps.v.outputs.tag }}  cargo=$got"
+          if [ "$want" != "$got" ]; then
+            echo "::error title=版本不一致::tag 为 ${{ steps.v.outputs.tag }}，但 Cargo.toml 的 version 是 $got"
+            exit 1
+          fi
+
+      - name: fmt
+        run: cargo fmt --all -- --check
+
+      - name: clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: test
+        run: cargo test --workspace
+
+      - name: build DLL（Windows）
+        run: cargo build -p pcx-cabi --release --target x86_64-pc-windows-msvc
+
+      - name: build wasm
+        run: cargo build -p pcx-wasm --release --target wasm32-unknown-unknown
+
+      - name: 双端比对
+        shell: bash
+        run: |
+          mkdir -p bindings/web/pkg
+          cp target/wasm32-unknown-unknown/release/pcx_wasm.wasm bindings/web/pkg/pcx_circuit.wasm
+          node scripts/compare.mjs
+
+      - name: 打包（Unity 四件套）
+        shell: pwsh
+        run: |
+          $tag = "${{ steps.v.outputs.tag }}"
+          New-Item -ItemType Directory -Force -Path stage/unity | Out-Null
+          Copy-Item target/x86_64-pc-windows-msvc/release/pcx_circuit.dll stage/unity/
+          Copy-Item bindings/csharp/*.cs stage/unity/
+          Copy-Item bindings/csharp/README.md stage/unity/
+          Copy-Item docs/api.md,docs/integration.md,LICENSE stage/unity/
+          New-Item -ItemType Directory -Force -Path artifacts | Out-Null
+          Compress-Archive -Path stage/unity/* -DestinationPath "artifacts/pcx-unity-$tag.zip" -Force
+          Get-ChildItem artifacts
+
+      - name: 打包（Web 四件套）
+        shell: pwsh
+        run: |
+          $tag = "${{ steps.v.outputs.tag }}"
+          New-Item -ItemType Directory -Force -Path stage/web | Out-Null
+          Copy-Item bindings/web/pkg/pcx_circuit.wasm stage/web/
+          Copy-Item bindings/web/pcx.js,bindings/web/demo.html,bindings/web/demo.js stage/web/
+          Copy-Item bindings/web/README.md stage/web/
+          Copy-Item fixtures/C3.json stage/web/
+          Copy-Item docs/demo.md,LICENSE stage/web/
+          Compress-Archive -Path stage/web/* -DestinationPath "artifacts/pcx-web-$tag.zip" -Force
+          Get-ChildItem artifacts
+
+      - name: 单独附上裸产物
+        shell: pwsh
+        run: |
+          $tag = "${{ steps.v.outputs.tag }}"
+          Copy-Item target/x86_64-pc-windows-msvc/release/pcx_circuit.dll "artifacts/pcx_circuit-$tag.dll"
+          Copy-Item target/wasm32-unknown-unknown/release/pcx_wasm.wasm "artifacts/pcx_circuit-$tag.wasm"
+          Get-ChildItem artifacts
+
+      - name: 建 Release（已存在则补传附件）
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag="${{ steps.v.outputs.tag }}"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" artifacts/* --clobber
+          else
+            gh release create "$tag" artifacts/* \
+              --target main \
+              --title "pcx $tag" \
+              --generate-notes
+          fi
+
+      - name: 汇总
+        shell: bash
+        run: |
+          echo "### 发布 ${{ steps.v.outputs.tag }}" >> "$GITHUB_STEP_SUMMARY"
+          ls -l artifacts >> "$GITHUB_STEP_SUMMARY"
+          echo "https://github.com/${{ github.repository }}/releases/tag/${{ steps.v.outputs.tag }}" >> "$GITHUB_STEP_SUMMARY"

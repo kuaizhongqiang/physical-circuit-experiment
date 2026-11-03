@@ -3,7 +3,8 @@ resolver = "2"
 members = ["crates/core", "crates/cabi", "crates/wasm"]
 
 [workspace.package]
-version = "0.1.0"
+# 与发布 tag 严格一致：tag v0.0.0 ⇔ version 0.0.0（release 流水线会校验）
+version = "0.0.0"
 edition = "2021"
 rust-version = "1.75"
 license = "MIT"
