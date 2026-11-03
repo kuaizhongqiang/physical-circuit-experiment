@@ -3,7 +3,7 @@
 读者：AI / 负责人
 类型：台账
 权威：负责人已定口径的唯一清单
-状态：2026-11-03 建立；首批 11 条（原 P-01…P-11）＋ 第二批 6 条（原 P-12…P-17）＋ 第三批 5 条（原 P-18…P-21 ＋ 短路细化）＋ 第四批 3 条（P-22 处置 ＋ 演示页范围 ＋ 参考点三分类）＋ 第五批 1 条（仓库流程 PR 化）
+状态：2026-11-03 建立；首批 11 条（原 P-01…P-11）＋ 第二批 6 条（原 P-12…P-17）＋ 第三批 5 条（原 P-18…P-21 ＋ 短路细化）＋ 第四批 3 条（P-22 处置 ＋ 演示页范围 ＋ 参考点三分类）＋ 第五批 2 条（仓库流程 PR 化 ＋ 分支保护让步）
 依赖：`TODO.md` §1（未拍板项在那边，拍板后转到这里）
 
 ## 0 写法
@@ -212,3 +212,11 @@
 - **验收检查名固定为 `guard`**：CI 里 `guard` job **故意不写 `name:`**，让 status check 上下文稳定等于 job key。改名会让 `main` 的必需检查永远等不到结果、PR 永远合不了 —— 这条写进 `ci.yml` 注释。
 - **配套**：`.gitignore` 覆盖 Rust / .NET / Unity / Node / wasm 全部产物，二进制与构建目录不入库（`AGENT.md` §2 已有"二进制不进库"，本文件把它落成具体规则）。
 - 应对：`AGENT.md` §3 增加"禁止直推 main"整段；`.agent/workflows/02-commit.md` 改为 PR 全流程（含中文安全的 `gh pr create --fill --body-file`）；`.github/pull_request_template.md` 增加"分支与检查"三问；`AGENT.md` §3 的 scope 允许列表补 `repo`。
+
+### D-20261103-27 分支保护暂不要求 `guard` 检查（实测：自动触发未生效）
+
+- **实测结论**：本仓库 `push` 与 `pull_request` 事件**都不产生 Actions 运行**（`/actions/runs?event=push` 与 `?event=pull_request` 均为 0），只有 `workflow_dispatch` 能跑；而 dispatch 的运行**不产生 PR 状态检查**（PR #30 的 `statusCheckRollup` 为空）。
+- **后果**：若把 `guard` 设为必需检查，`main` 将永远无法合并（PR #30 实测 `mergeState = BLOCKED`）。这是保护规则与 CI 触发能力的冲突，不是代码问题。
+- **决定**：分支保护保留 **必需 PR ＋ 禁强推 ＋ 禁删除**，**暂时去掉必需状态检查**；CI 改为**合并前手动验证**：`gh workflow run ci --ref <branch>` ＋ `gh run watch`。D-20261103-26 的实质（所有改动必须走 PR ＋ squash merge）**不变**，只是检查从"平台强制"退为"流程强制"。
+- **恢复条件**：push / pull_request 事件能正常产生运行时，把 `guard` 加回必需检查（`TODO.md` T-14）。届时 `ci.yml` 无需改动 —— `on.push` 已去掉分支过滤、`on.pull_request` 已显式列 types。
+- 应对：`AGENT.md` §3 改为"PR 必需 ＋ CI 手动跑"；`.agent/workflows/02-commit.md` 增加手动触发段；新增笔记 `.agent/notes/github-actions-triggers.md` 记录现象与排查路径。
