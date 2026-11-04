@@ -5,3 +5,5 @@
 import "./catalog.test.js";
 import "./geometry.test.js";
 import "./model.test.js";
+import "./state.test.js";
+import "./solve.test.js";

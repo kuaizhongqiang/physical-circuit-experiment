@@ -3,7 +3,7 @@
 读者：AI / 负责人
 类型：台账
 权威：已提交变更的唯一清单
-状态：2026-11-04 更新；已登记 `R-01`…`R-09`
+状态：2026-11-04 更新；已登记 `R-01`…`R-10`
 依赖：`DECISION.md`（口径来源）
 
 ## 0 写法
@@ -27,3 +27,4 @@
 | `R-07` | `6b1084c` | `ci(release): 新增 tag 发布流水线，版本从 v0.0.0 起 (#35)` | `.github/workflows/release.yml` `Cargo.toml`(0.0.0) `crates/cabi`(版本串去硬编码) `.agent/workflows/05-release.md` `DECISION.md`（D-31） |
 | `R-08` | `2ee29df` | `docs(record): 补登 R-06 / R-07 并标注当前版本 v0.0.0 (#36)` | `RECORD.md` `README.md` |
 | `R-09` | `f0600ca` | `docs(playground): M6 切片 0 —— 实验台契约、口径与台账（纯文档） (#47)` | `docs/playground.md`(新) `docs/roadmap.md` §7 `docs/README.md` `AGENT.md` §5 `README.md` `TODO.md` `DECISION.md`（D-20261104-01…10）`RECORD.md`(R-08) `.agent/skills/gh-plan/plan.json` |
+| `R-10` | `ba86fe4` | `feat(web): M6.1 器件图元元数据与几何映射（纯逻辑＋node 单测） (#48)` | `bindings/web/playground/device-catalog.js`(新) `geometry.js`(新) `model.js`(新) `test/`(4) `TODO.md` `RECORD.md` |

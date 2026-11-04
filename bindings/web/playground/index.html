@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>电路实验台（M6.2 骨架）</title>
+<style>
+  :root {
+    --ink: #263238;
+    --muted: #607d8b;
+    --line: #cfd8dc;
+    --panel: #ffffff;
+    --bg: #eef2f4;
+    --accent: #1e88e5;
+    --danger: #c62828;
+    --warn: #ef6c00;
+    --ok: #2e7d32;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    background: var(--bg);
+    color: var(--ink);
+    font: 13px/1.45 system-ui, -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+  }
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 10px 16px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--line);
+    flex: none;
+  }
+  header h1 { margin: 0; font-size: 17px; letter-spacing: .2px; }
+  header h1 span { color: var(--muted); font-size: 12px; font-weight: 500; margin-left: 6px; }
+  header p { margin: 1px 0 0; color: var(--muted); font-size: 11px; }
+  #statusbar {
+    padding: 6px 10px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: #fafbfc;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  #statusbar.bad { border-color: #ef9a9a; background: #fff1f0; color: var(--danger); }
+  #banner {
+    margin: 8px 16px 0;
+    padding: 9px 12px;
+    border: 1px solid #ef9a9a;
+    border-left: 4px solid var(--danger);
+    border-radius: 6px;
+    background: #fff1f0;
+    color: #b71c1c;
+    white-space: pre-wrap;
+    font-size: 12px;
+    flex: none;
+  }
+  main {
+    display: grid;
+    grid-template-columns: 208px minmax(0, 1fr) 226px;
+    gap: 10px;
+    padding: 10px 16px;
+    min-height: 0;
+    flex: 1;
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px;
+    min-height: 0;
+    overflow: auto;
+  }
+  .panel h2 { margin: 0 0 8px; font-size: 12px; color: var(--muted); letter-spacing: .08em; }
+  .palette-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .palette-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1px;
+    padding: 6px 8px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: #fafbfc;
+    color: var(--ink);
+    cursor: pointer;
+    text-align: left;
+    font: inherit;
+  }
+  .palette-btn:hover { border-color: var(--accent); background: #f1f8ff; }
+  .palette-btn:disabled { opacity: .45; cursor: not-allowed; }
+  .palette-btn .kind { font-weight: 700; font-size: 12px; color: #1565c0; }
+  .palette-btn .name { font-size: 10px; color: var(--muted); }
+  #stage {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    min-height: 0;
+    overflow: auto;
+  }
+  #board {
+    display: block;
+    width: 100%;
+    max-width: 1600px;
+    height: auto;
+    background: #fff;
+    border: 1px solid #eceff1;
+    border-radius: 4px;
+    touch-action: none;
+    user-select: none;
+    cursor: default;
+  }
+  #selectedInfo { min-height: 52px; }
+  .sel-ref { font-size: 14px; font-weight: 700; }
+  .sel-meta { margin-top: 4px; color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+  .actions { display: grid; gap: 6px; margin-top: 10px; }
+  .actions button {
+    padding: 7px 9px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: #fafbfc;
+    font: inherit;
+    cursor: pointer;
+  }
+  .actions button:hover:not(:disabled) { border-color: var(--accent); }
+  .actions button:disabled { opacity: .45; cursor: not-allowed; }
+  #deleteBtn:not(:disabled) { color: var(--danger); border-color: #ef9a9a; background: #fff8f8; }
+  .hint { margin: 10px 0 0; color: var(--muted); font-size: 11px; line-height: 1.6; }
+  #notice { margin: 8px 0 0; padding: 5px 7px; border-radius: 5px; background: #fff8e1; color: #8d6e00; font-size: 11px; }
+  footer {
+    flex: none;
+    min-height: 32px;
+    padding: 6px 16px;
+    background: var(--panel);
+    border-top: 1px solid var(--line);
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  footer.ok { color: var(--ok); }
+  footer.warn { color: var(--warn); }
+  footer.error { color: var(--danger); }
+  @media (max-width: 900px) {
+    main { grid-template-columns: 1fr; }
+    #stage { order: -1; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>电路实验台 <span>M6.2 画布编辑器骨架</span></h1>
+    <p>白画布 · 本期只算电气量 · 编辑中间态默认宽松模式</p>
+  </div>
+  <div id="statusbar">器件 0 ｜ 接点 0 ｜ 导线 0 ｜ 诊断 0</div>
+</header>
+
+<div id="banner" hidden></div>
+
+<main>
+  <aside class="panel">
+    <h2>器件面板</h2>
+    <div id="paletteGrid" class="palette-grid"></div>
+    <p class="hint">点击器件放到画布空闲位置。<br>拖动器件移动，松手后才重算。</p>
+  </aside>
+
+  <section id="stage">
+    <canvas id="board" aria-label="电路画布"></canvas>
+  </section>
+
+  <aside class="panel">
+    <h2>选中器件</h2>
+    <div id="selectedInfo">未选中</div>
+    <div class="actions">
+      <button id="deleteBtn" type="button" disabled>删除选中</button>
+      <button id="resetBtn" type="button">重置白画布</button>
+    </div>
+    <p id="notice" hidden></p>
+    <p class="hint">删除会级联删除相连导线，并按 docs/playground.md §2.4 重排接点 id 后重算。</p>
+  </aside>
+</main>
+
+<footer id="diagbar" class="ok"><span id="diagText">未就绪</span></footer>
+
+<script type="module">
+import { loadPcx } from "../pcx.js";
+import { CATALOG, KIND_ORDER, terminalCount } from "./device-catalog.js";
+import {
+  createInitialState,
+  reducer,
+  selectedDevice,
+  totalTerminalCount,
+} from "./state.js";
+import { solveState } from "./solve.js";
+import { createCanvasView, diagLevelText, diagText } from "./canvas.js";
+
+const WASM_URL = "../pkg/pcx_circuit.wasm";
+
+// 与 docs/domain-model.md §2 的 kind 编号一致，用于和内核核对接点数。
+const KIND_NUM = {
+  POWER: 1, QS: 2, FU: 3, KM: 4, KA: 5, KT: 6, KS: 7, FR: 8,
+  SB: 9, SQ: 10, M: 11, R: 12, EL: 13, TB: 14, PE: 15,
+};
+
+const $ = (id) => document.getElementById(id);
+const banner = $("banner");
+const statusbar = $("statusbar");
+const paletteGrid = $("paletteGrid");
+const selectedInfo = $("selectedInfo");
+const deleteBtn = $("deleteBtn");
+const resetBtn = $("resetBtn");
+const noticeEl = $("notice");
+const diagbar = $("diagbar");
+const diagTextEl = $("diagText");
+const board = $("board");
+
+let pcx = null;
+let state = createInitialState();
+let bootError = null;
+let actionError = null;
+let view = null;
+
+// ── 启动失败 / 操作失败的红条 ──────────────────────────────────────────────
+const BUILD_HINT = [
+  "wasm 未就绪：请先构建并复制产物，再刷新页面。",
+  "",
+  "  cargo build -p pcx-wasm --release --target wasm32-unknown-unknown",
+  "  mkdir -p bindings/web/pkg && cp target/wasm32-unknown-unknown/release/pcx_wasm.wasm bindings/web/pkg/pcx_circuit.wasm",
+  "",
+  "然后用 node scripts/serve.mjs 8080 起服务（不能 file:// 打开）。",
+].join("\n");
+
+function setPaletteEnabled(enabled) {
+  for (const button of paletteGrid.querySelectorAll("button")) {
+    button.disabled = !enabled;
+  }
+  resetBtn.disabled = !enabled;
+}
+
+function updateBanner() {
+  let text = null;
+  if (bootError) text = bootError;
+  else if (actionError) text = `操作失败：${actionError}`;
+  else if (state.solveError) {
+    const detail = state.solveError.code === null || state.solveError.code === undefined
+      ? state.solveError.message
+      : `${diagText(state.solveError.code)}（code ${state.solveError.code}）`;
+    text = `求解失败：${detail}\n画布沿用上一次成功结果；修正后会自动重算。`;
+  }
+  banner.hidden = text === null;
+  banner.textContent = text ?? "";
+}
+
+function updateStatus() {
+  const diagCount = (state.diags?.length ?? 0) + (state.solveError && (state.diags?.length ?? 0) === 0 ? 1 : 0);
+  statusbar.textContent = `器件 ${state.devices.length} ｜ 接点 ${totalTerminalCount(state.devices)} ｜ 导线 ${state.wires.length} ｜ 诊断 ${diagCount}`;
+  statusbar.classList.toggle("bad", Boolean(state.solveError) || Boolean(bootError));
+}
+
+function updateSelected() {
+  const device = selectedDevice(state);
+  if (!device) {
+    selectedInfo.textContent = "未选中";
+    deleteBtn.disabled = true;
+    noticeEl.hidden = true;
+    return;
+  }
+  const ref = document.createElement("div");
+  ref.className = "sel-ref";
+  ref.textContent = `${device.ref} · ${CATALOG[device.kind]?.label ?? device.kind}`;
+  const meta = document.createElement("div");
+  meta.className = "sel-meta";
+  meta.textContent = `位置 (${Math.round(device.x)}, ${Math.round(device.y)}) · 接点 ${terminalCount(device.kind, device.aux)}`;
+  selectedInfo.replaceChildren(ref, meta);
+  deleteBtn.disabled = Boolean(bootError);
+
+  const message = state.paramError?.message ?? state.notice;
+  noticeEl.hidden = !message;
+  noticeEl.textContent = message ?? "";
+}
+
+function updateDiags() {
+  let items = [...(state.diags ?? [])];
+  if (state.solveError && items.length === 0) {
+    items = [{ code: state.solveError.code, level: 2, message: state.solveError.message }];
+  }
+  if (bootError) {
+    diagbar.className = "error";
+    diagTextEl.textContent = "未就绪：wasm 加载失败";
+    return;
+  }
+  if (items.length === 0) {
+    diagbar.className = "ok";
+    diagTextEl.textContent = "正常";
+    return;
+  }
+  items.sort((a, b) => (b.level ?? 0) - (a.level ?? 0));
+  const worst = items[0]?.level ?? 0;
+  diagbar.className = worst >= 2 ? "error" : worst === 1 ? "warn" : "ok";
+  diagTextEl.textContent = items.map((item) => {
+    const text = item.message ?? diagText(item.code);
+    return `${diagLevelText(item.level)}：${text}`;
+  }).join("　");
+}
+
+function render() {
+  view?.render(state);
+  updateStatus();
+  updateSelected();
+  updateDiags();
+  updateBanner();
+}
+
+function dispatch(event) {
+  try {
+    actionError = null;
+    const next = reducer(state, event);
+    state = next.needsSolve ? solveState(next, pcx) : next;
+  } catch (error) {
+    actionError = error?.message ?? String(error);
+    console.error(error);
+  }
+  render();
+}
+
+function buildPalette() {
+  for (const kind of KIND_ORDER) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "palette-btn";
+    button.dataset.kind = kind;
+    const code = document.createElement("span");
+    code.className = "kind";
+    code.textContent = kind;
+    const name = document.createElement("span");
+    name.className = "name";
+    name.textContent = CATALOG[kind].label;
+    button.append(code, name);
+    button.addEventListener("click", () => dispatch({ type: "place", kind }));
+    paletteGrid.append(button);
+  }
+}
+
+// 启动自检：目录接点数必须与内核一致，否则接点 id 全错（沿用 demo.html 的做法）。
+function verifyCatalog() {
+  const bad = [];
+  for (const kind of KIND_ORDER) {
+    const aux = CATALOG[kind].defaultAux;
+    const expected = terminalCount(kind, aux);
+    const got = pcx.terminalCount(KIND_NUM[kind], aux);
+    if (got !== expected) bad.push(`${kind} 目录 ${expected} ≠ 内核 ${got}`);
+  }
+  if (bad.length) throw new Error(`接点数自检失败：${bad.join("；")}`);
+}
+
+async function boot() {
+  buildPalette();
+  view = createCanvasView(board, {
+    onEvent: dispatch,
+    onError: (error) => {
+      actionError = error?.message ?? String(error);
+      console.error(error);
+      render();
+    },
+  });
+  render();
+
+  try {
+    pcx = await loadPcx(WASM_URL);
+    verifyCatalog();
+    state = solveState(state, pcx);
+  } catch (error) {
+    bootError = `${BUILD_HINT}\n\n错误：${error?.message ?? error}`;
+    setPaletteEnabled(false);
+    console.error(error);
+  }
+  render();
+}
+
+deleteBtn.addEventListener("click", () => {
+  if (state.selected) dispatch({ type: "remove", ref: state.selected });
+});
+resetBtn.addEventListener("click", () => dispatch({ type: "reset" }));
+
+window.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") {
+    dispatch({ type: "cancel" });
+    return;
+  }
+  if ((event.key === "Delete" || event.key === "Backspace") && state.selected) {
+    event.preventDefault();
+    dispatch({ type: "remove", ref: state.selected });
+  }
+});
+
+boot();
+</script>
+</body>
+</html>
