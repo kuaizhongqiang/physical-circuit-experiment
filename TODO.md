@@ -3,7 +3,7 @@
 读者：AI / 负责人
 类型：台账
 权威：**待办与待拍板项的唯一清单**
-状态：2026-11-04 更新 — M0–M5 已完成；**M6 网页实验台进行中**，M6.0 契约完成后只剩 M6.1…M6.8（见 §2）；§1 无待拍板
+状态：2026-11-04 更新 — M0–M5 已完成；**M6 网页实验台进行中**，剩余切片见 §2；§1 无待拍板
 依赖：`AGENT.md`（纪律）、`docs/README.md`（文档地图）、`docs/roadmap.md`（里程碑与门禁，§7 为 M6）、`DECISION.md`（已定口径）
 
 ## 0 用法
@@ -21,7 +21,6 @@
 
 M6 网页电路实验台按切片串行推进（一片一 PR，顺序与门禁见 `docs/roadmap.md` §7、契约见 `docs/playground.md`）：
 
-- **T-15**（M6.1 / #39）15 类器件图元元数据与几何映射：`bindings/web/playground/{device-catalog,geometry,model}.js` ＋ `node --test` 逐行断言几何表。
 - **T-16**（M6.2 / #40）画布编辑器骨架：`state.js` / `solve.js` / `canvas.js` / `index.html`，白画布放置 / 拖动 / 删除与即时求解。
 - **T-17**（M6.3 / #41）接线交互与导线渲染：点接点连线、删线、正交走线、框内裁剪（Liang–Barsky）与单测。
 - **T-18**（M6.4 / #42）C1…C10 十样例与切换：`samples/C*.json`（layout ＋ 操作状态）＋ `samples.js` ＋ `scripts/playground-check.mjs` 首版。
