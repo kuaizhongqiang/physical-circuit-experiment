@@ -13,6 +13,7 @@ import {
   isCommitEvent,
   reducer,
   selectedDevice,
+  terminalLabel,
   totalTerminalCount,
 } from "../state.js";
 
@@ -448,4 +449,178 @@ test("接点表驱动的默认位号前缀与 fixture 一致", () => {
     "FU1", "FU2", "FU3", "SB1", "SB2", "KM1", "M1", "PE1",
   ]);
   assert.deepEqual(terminalsFor("PE").map((terminal) => terminal.name), ["PE"]);
+});
+
+// ── M6.3 接线（issue #41 / docs/playground.md §5.2） ────────────────────────
+
+test("addWire 追加导线并提交求解，notice 给出位号.接点", () => {
+  let state = place(createInitialState(), "POWER", { x: 20, y: 20 });
+  state = place(state, "PE", { x: 200, y: 20 });
+  state = { ...state, needsSolve: false };
+
+  const added = reducer(state, { type: "addWire", a: 0, b: 4 });
+  assert.deepEqual(added.wires, [{ a: 0, b: 4 }]);
+  assert.equal(added.needsSolve, true);
+  assert.equal(added.revision, state.revision + 1);
+  assert.equal(added.noticeLevel, "info");
+  assert.match(added.notice, /已加线 P1\.L1 ↔ PE1\.PE/);
+  assert.equal(terminalLabel(added.devices, 0), "P1.L1");
+  assert.equal(terminalLabel(added.devices, 4), "PE1.PE");
+  assert.equal(terminalLabel(added.devices, 99), "#99");
+});
+
+test("addWire 拒绝自连 / 重复（无序对）/ 越界 / 未知接点，且不改网表不求解", () => {
+  let state = place(createInitialState(), "POWER", { x: 20, y: 20 });
+  state = place(state, "PE", { x: 200, y: 20 });
+  state = reducer(state, { type: "addWire", a: 0, b: 4 });
+  const base = { ...state, needsSolve: false, revision: state.revision + 10 };
+  const before = JSON.parse(JSON.stringify(base));
+
+  const cases = [
+    [{ a: 0, b: 0 }, /不能把接点接到自己/],
+    [{ a: 4, b: 0 }, /已有此导线/], // 反向重复
+    [{ a: -1, b: 0 }, /接点不存在/],
+    [{ a: 0, b: 5 }, /接点不存在/], // 总数 5：4 是最后一个接点
+    [{ a: 1.5, b: 0 }, /接点不存在/],
+    [{ a: Number.NaN, b: 0 }, /接点不存在/],
+  ];
+  for (const [event, pattern] of cases) {
+    const next = reducer(base, { type: "addWire", ...event });
+    assert.deepEqual(next.wires, base.wires, JSON.stringify(event));
+    assert.equal(next.needsSolve, false);
+    assert.equal(next.revision, base.revision);
+    assert.equal(next.noticeLevel, "warn");
+    assert.match(next.notice, pattern);
+  }
+  assert.deepEqual(JSON.parse(JSON.stringify(base)), before, "拒绝路径不得改动入参");
+});
+
+test("pickTerminal / completeWire：两次点击成线；没有 pending 时忽略；自连拒绝", () => {
+  let state = place(createInitialState(), "POWER");
+  state = place(state, "PE");
+  state = { ...state, needsSolve: false };
+
+  const picked = reducer(state, { type: "pickTerminal", terminal: 0 });
+  assert.equal(picked.mode, MODE.PICK_A);
+  assert.equal(picked.pendingTerminal, 0);
+  assert.equal(picked.needsSolve, false);
+  assert.equal(picked.revision, state.revision);
+
+  const done = reducer(picked, { type: "completeWire", terminal: 4 });
+  assert.deepEqual(done.wires, [{ a: 0, b: 4 }]);
+  assert.equal(done.mode, MODE.IDLE);
+  assert.equal(done.pendingTerminal, null);
+  assert.equal(done.needsSolve, true);
+  assert.equal(done.revision, state.revision + 1);
+
+  // 没有待接线的第二次点击没有语义，原样返回（幂等）。
+  assert.equal(reducer(state, { type: "completeWire", terminal: 4 }), state);
+
+  // 点两次同一个接点：按 §5.2 拒绝，并回到 IDLE。
+  const self = reducer(
+    reducer(state, { type: "pickTerminal", terminal: 0 }),
+    { type: "completeWire", terminal: 0 },
+  );
+  assert.deepEqual(self.wires, []);
+  assert.equal(self.mode, MODE.IDLE);
+  assert.equal(self.pendingTerminal, null);
+  assert.equal(self.needsSolve, false);
+  assert.match(self.notice, /不能把接点接到自己/);
+});
+
+test("removeWire 按下标删除；selectWire 选中高亮；cancel 清空临时选择", () => {
+  let state = place(createInitialState(), "POWER", { x: 20, y: 20 });
+  state = place(state, "PE", { x: 200, y: 20 });
+  state = reducer(state, { type: "addWire", a: 0, b: 4 });
+  state = reducer(state, { type: "addWire", a: 1, b: 4 });
+  state = { ...state, needsSolve: false, revision: 7 };
+
+  const selected = reducer(state, { type: "selectWire", index: 0 });
+  assert.equal(selected.selectedWire, 0);
+  assert.equal(selected.selected, null);
+  assert.equal(selected.needsSolve, false);
+
+  assert.equal(reducer(state, { type: "selectWire", index: 99 }).selectedWire, null);
+  assert.equal(reducer(state, { type: "selectWire", index: null }).selectedWire, null);
+
+  const removed = reducer(selected, { type: "removeWire", index: 0 });
+  assert.deepEqual(removed.wires, [{ a: 1, b: 4 }]);
+  assert.equal(removed.selectedWire, null);
+  assert.equal(removed.needsSolve, true);
+  assert.equal(removed.revision, state.revision + 1);
+
+  assert.equal(reducer(state, { type: "removeWire", index: -1 }), state);
+  assert.equal(reducer(state, { type: "removeWire", index: 9 }), state);
+
+  const pending = reducer(
+    reducer(state, { type: "selectWire", index: 1 }),
+    { type: "pickTerminal", terminal: 2 },
+  );
+  const cancelled = reducer(pending, { type: "cancel" });
+  assert.equal(cancelled.mode, MODE.IDLE);
+  assert.equal(cancelled.pendingTerminal, null);
+  assert.equal(cancelled.selectedWire, null);
+  assert.equal(cancelled.needsSolve, false);
+});
+
+test("clearWires 一次清空；空网表时幂等", () => {
+  let state = place(createInitialState(), "POWER");
+  state = place(state, "PE");
+  state = reducer(state, { type: "addWire", a: 0, b: 4 });
+  state = { ...state, selectedWire: 0, needsSolve: false, revision: 3 };
+
+  const cleared = reducer(state, { type: "clearWires" });
+  assert.deepEqual(cleared.wires, []);
+  assert.equal(cleared.selectedWire, null);
+  assert.equal(cleared.needsSolve, true);
+  assert.equal(cleared.revision, state.revision + 1);
+  assert.match(cleared.notice, /已清空全部导线/);
+
+  assert.equal(reducer(cleared, { type: "clearWires" }), cleared);
+});
+
+test("addWire 之后 removeDevice 级联删线并重写剩余导线的接点 id", () => {
+  let state = place(createInitialState(), "POWER", { x: 20, y: 20 });
+  state = place(state, "PE", { x: 180, y: 20 }); // 接点 4
+  state = place(state, "FU", { x: 300, y: 20 }); // 接点 5/6
+  // 0-4 触 PE（应删）；0-5 不触 PE（应保留，PE 删除后 FU 的 base 从 5 → 4）。
+  state = reducer(state, { type: "addWire", a: 0, b: 4 });
+  state = reducer(state, { type: "addWire", a: 0, b: 5 });
+  state = { ...state, needsSolve: false, revision: 11 };
+
+  const next = reducer(state, { type: "remove", ref: "PE1" });
+  assert.deepEqual(next.devices.map((device) => [device.ref, device.terminal_base]), [
+    ["P1", 0],
+    ["FU1", 4],
+  ]);
+  assert.deepEqual(next.wires, [{ a: 0, b: 4 }]);
+  assert.equal(next.needsSolve, true);
+  assert.equal(next.selectedWire, null);
+  assert.equal(next.revision, state.revision + 1);
+});
+
+test("isCommitEvent 覆盖接线事件：pick / selectWire 非提交，add / complete / remove / clear 提交", () => {
+  for (const type of ["addWire", "completeWire", "removeWire", "clearWires"]) {
+    assert.equal(isCommitEvent({ type }), true, `${type} 应为提交型`);
+  }
+  for (const type of ["pickTerminal", "selectWire"]) {
+    assert.equal(isCommitEvent({ type }), false, `${type} 不应为提交型`);
+  }
+});
+
+test("reducer 对 addWire / removeWire / clearWires 也不改入参", () => {
+  let state = place(createInitialState(), "POWER");
+  state = place(state, "PE");
+  state = reducer(state, { type: "addWire", a: 0, b: 4 });
+  const frozen = deepFreeze(state);
+  const snapshot = JSON.parse(JSON.stringify(frozen));
+
+  reducer(frozen, { type: "addWire", a: 1, b: 4 });
+  reducer(frozen, { type: "pickTerminal", terminal: 1 });
+  reducer(frozen, { type: "completeWire", terminal: 4 });
+  reducer(frozen, { type: "selectWire", index: 0 });
+  reducer(frozen, { type: "removeWire", index: 0 });
+  reducer(frozen, { type: "clearWires" });
+
+  assert.deepEqual(JSON.parse(JSON.stringify(frozen)), snapshot);
 });

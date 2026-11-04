@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>电路实验台（M6.2 骨架）</title>
+<title>电路实验台（M6.3 接线与导线）</title>
 <style>
   :root {
     --ink: #263238;
@@ -63,7 +63,7 @@
   }
   main {
     display: grid;
-    grid-template-columns: 208px minmax(0, 1fr) 226px;
+    grid-template-columns: 208px minmax(0, 1fr) 300px;
     gap: 10px;
     padding: 10px 16px;
     min-height: 0;
@@ -123,6 +123,42 @@
   #selectedInfo { min-height: 52px; }
   .sel-ref { font-size: 14px; font-weight: 700; }
   .sel-meta { margin-top: 4px; color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+  .wire-heading { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; }
+  .wire-heading span { color: var(--muted); font-weight: 500; }
+  .wire-wrap {
+    max-height: 42vh;
+    overflow: auto;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+  }
+  .wire-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 10px;
+    font-variant-numeric: tabular-nums;
+  }
+  .wire-table th {
+    position: sticky;
+    top: 0;
+    padding: 4px;
+    border-bottom: 1px solid var(--line);
+    background: #f5f7f8;
+    color: var(--muted);
+    font-weight: 600;
+    text-align: left;
+    white-space: nowrap;
+  }
+  .wire-table td {
+    padding: 3px 4px;
+    border-bottom: 1px solid #eceff1;
+    white-space: nowrap;
+  }
+  .wire-table tbody tr { cursor: pointer; }
+  .wire-table tbody tr:hover { background: #f1f8ff; }
+  .wire-table tbody tr.selected { background: #e3f2fd; }
+  .wire-table tbody tr.new { background: #fff1f0; color: #b71c1c; font-weight: 600; }
+  .wire-table tbody tr.wire-empty { cursor: default; color: var(--muted); }
+  .wire-table tbody tr.wire-empty:hover { background: transparent; }
   .actions { display: grid; gap: 6px; margin-top: 10px; }
   .actions button {
     padding: 7px 9px;
@@ -160,8 +196,8 @@
 <body>
 <header>
   <div>
-    <h1>电路实验台 <span>M6.2 画布编辑器骨架</span></h1>
-    <p>白画布 · 本期只算电气量 · 编辑中间态默认宽松模式</p>
+    <h1>电路实验台 <span>M6.3 接线交互与导线渲染</span></h1>
+    <p>白画布 · 点接点 A 再点接点 B 接线 · 本期只算电气量 · 编辑中间态默认宽松模式</p>
   </div>
   <div id="statusbar">器件 0 ｜ 接点 0 ｜ 导线 0 ｜ 诊断 0</div>
 </header>
@@ -172,7 +208,7 @@
   <aside class="panel">
     <h2>器件面板</h2>
     <div id="paletteGrid" class="palette-grid"></div>
-    <p class="hint">点击器件放到画布空闲位置。<br>拖动器件移动，松手后才重算。</p>
+    <p class="hint">点击器件放到画布空闲位置。<br>拖动器件移动，松手后才重算。<br>点接点 A 再点接点 B 接线。</p>
   </aside>
 
   <section id="stage">
@@ -180,14 +216,25 @@
   </section>
 
   <aside class="panel">
-    <h2>选中器件</h2>
+    <h2>选中器件 / 导线</h2>
     <div id="selectedInfo">未选中</div>
     <div class="actions">
       <button id="deleteBtn" type="button" disabled>删除选中</button>
+      <button id="clearWiresBtn" type="button">清空全部导线</button>
       <button id="resetBtn" type="button">重置白画布</button>
     </div>
     <p id="notice" hidden></p>
-    <p class="hint">删除会级联删除相连导线，并按 docs/playground.md §2.4 重排接点 id 后重算。</p>
+
+    <h2 class="wire-heading">导线清单 <span id="wireCount">0</span></h2>
+    <div class="wire-wrap">
+      <table class="wire-table">
+        <thead>
+          <tr><th>#</th><th>from</th><th>to</th><th>电流</th></tr>
+        </thead>
+        <tbody id="wireBody"></tbody>
+      </table>
+    </div>
+    <p class="hint">点导线（画布或清单行）选中，Delete 删除；点接点 A 再点接点 B 加线；Esc 取消。<br>删除器件会级联删除相连导线，并按 docs/playground.md §2.4 重排接点 id 后重算。</p>
   </aside>
 </main>
 
@@ -200,6 +247,7 @@ import {
   createInitialState,
   reducer,
   selectedDevice,
+  terminalLabel,
   totalTerminalCount,
 } from "./state.js";
 import { solveState } from "./solve.js";
@@ -219,8 +267,11 @@ const statusbar = $("statusbar");
 const paletteGrid = $("paletteGrid");
 const selectedInfo = $("selectedInfo");
 const deleteBtn = $("deleteBtn");
+const clearWiresBtn = $("clearWiresBtn");
 const resetBtn = $("resetBtn");
 const noticeEl = $("notice");
+const wireBody = $("wireBody");
+const wireCount = $("wireCount");
 const diagbar = $("diagbar");
 const diagTextEl = $("diagText");
 const board = $("board");
@@ -230,6 +281,23 @@ let state = createInitialState();
 let bootError = null;
 let actionError = null;
 let view = null;
+let flashWireIndex = -1;
+let flashWireUntil = 0;
+let flashTimer = null;
+
+function formatCurrent(value) {
+  if (!Number.isFinite(value)) return "—";
+  if (Math.abs(value) >= 1) return `${value.toFixed(2)} A`;
+  if (Math.abs(value) >= 1e-3) return `${(value * 1e3).toFixed(2)} mA`;
+  return `${(value * 1e6).toFixed(2)} µA`;
+}
+
+function wireCurrent(wire, byId) {
+  const a = byId.get(wire.a);
+  const b = byId.get(wire.b);
+  if (!a && !b) return null;
+  return Math.max(a?.i_rms ?? 0, b?.i_rms ?? 0);
+}
 
 // ── 启动失败 / 操作失败的红条 ──────────────────────────────────────────────
 const BUILD_HINT = [
@@ -245,6 +313,7 @@ function setPaletteEnabled(enabled) {
   for (const button of paletteGrid.querySelectorAll("button")) {
     button.disabled = !enabled;
   }
+  clearWiresBtn.disabled = !enabled;
   resetBtn.disabled = !enabled;
 }
 
@@ -268,12 +337,37 @@ function updateStatus() {
   statusbar.classList.toggle("bad", Boolean(state.solveError) || Boolean(bootError));
 }
 
+function showNotice() {
+  const message = state.paramError?.message ?? state.notice;
+  noticeEl.hidden = !message;
+  noticeEl.textContent = message ?? "";
+}
+
 function updateSelected() {
+  const wire = Number.isInteger(state.selectedWire) ? state.wires[state.selectedWire] : null;
+  if (wire) {
+    const ref = document.createElement("div");
+    ref.className = "sel-ref";
+    ref.textContent = `导线 #${state.selectedWire + 1}`;
+    const meta = document.createElement("div");
+    meta.className = "sel-meta";
+    const byId = new Map((state.result?.terminals ?? []).map((terminal) => [terminal.id, terminal]));
+    const current = wireCurrent(wire, byId);
+    const suffix = current === null ? "" : ` · ${formatCurrent(current)}`;
+    meta.textContent = `${terminalLabel(state.devices, wire.a)} ↔ ${terminalLabel(state.devices, wire.b)}${suffix}`;
+    selectedInfo.replaceChildren(ref, meta);
+    deleteBtn.disabled = Boolean(bootError);
+    deleteBtn.textContent = "删除选中导线";
+    showNotice();
+    return;
+  }
+
+  deleteBtn.textContent = "删除选中";
   const device = selectedDevice(state);
   if (!device) {
     selectedInfo.textContent = "未选中";
     deleteBtn.disabled = true;
-    noticeEl.hidden = true;
+    showNotice();
     return;
   }
   const ref = document.createElement("div");
@@ -284,16 +378,60 @@ function updateSelected() {
   meta.textContent = `位置 (${Math.round(device.x)}, ${Math.round(device.y)}) · 接点 ${terminalCount(device.kind, device.aux)}`;
   selectedInfo.replaceChildren(ref, meta);
   deleteBtn.disabled = Boolean(bootError);
+  showNotice();
+}
 
-  const message = state.paramError?.message ?? state.notice;
-  noticeEl.hidden = !message;
-  noticeEl.textContent = message ?? "";
+function updateWires() {
+  const byId = new Map((state.result?.terminals ?? []).map((terminal) => [terminal.id, terminal]));
+  const now = performance.now();
+  const rows = [];
+  for (let index = state.wires.length - 1; index >= 0; index -= 1) {
+    const wire = state.wires[index];
+    const tr = document.createElement("tr");
+    tr.dataset.index = String(index);
+    if (index === state.selectedWire) tr.className = "selected";
+    else if (index === flashWireIndex && now < flashWireUntil) tr.className = "new";
+    const current = wireCurrent(wire, byId);
+    const cells = [
+      String(index + 1),
+      terminalLabel(state.devices, wire.a),
+      terminalLabel(state.devices, wire.b),
+      current === null ? "—" : formatCurrent(current),
+    ];
+    for (const value of cells) {
+      const td = document.createElement("td");
+      td.textContent = value;
+      tr.append(td);
+    }
+    tr.addEventListener("click", () => {
+      dispatch({ type: "selectWire", index: state.selectedWire === index ? null : index });
+    });
+    rows.push(tr);
+  }
+  if (rows.length === 0) {
+    const tr = document.createElement("tr");
+    tr.className = "wire-empty";
+    const td = document.createElement("td");
+    td.colSpan = 4;
+    td.textContent = "（当前 0 条导线）";
+    tr.append(td);
+    rows.push(tr);
+  }
+  wireBody.replaceChildren(...rows);
+  wireCount.textContent = `${state.wires.length} 条`;
 }
 
 function updateDiags() {
   let items = [...(state.diags ?? [])];
   if (state.solveError && items.length === 0) {
     items = [{ code: state.solveError.code, level: 2, message: state.solveError.message }];
+  }
+  if (state.notice) {
+    items.push({
+      code: null,
+      level: state.noticeLevel === "warn" ? 1 : 0,
+      message: state.notice,
+    });
   }
   if (bootError) {
     diagbar.className = "error";
@@ -318,15 +456,27 @@ function render() {
   view?.render(state);
   updateStatus();
   updateSelected();
+  updateWires();
   updateDiags();
   updateBanner();
 }
 
 function dispatch(event) {
+  const wiresBefore = state.wires.length;
   try {
     actionError = null;
     const next = reducer(state, event);
     state = next.needsSolve ? solveState(next, pcx) : next;
+    if ((event.type === "addWire" || event.type === "completeWire")
+      && state.wires.length === wiresBefore + 1) {
+      flashWireIndex = state.wires.length - 1;
+      flashWireUntil = performance.now() + 2000;
+      clearTimeout(flashTimer);
+      flashTimer = setTimeout(() => {
+        flashWireIndex = -1;
+        render();
+      }, 2000);
+    }
   } catch (error) {
     actionError = error?.message ?? String(error);
     console.error(error);
@@ -388,8 +538,19 @@ async function boot() {
   render();
 }
 
-deleteBtn.addEventListener("click", () => {
+function deleteSelected() {
+  if (Number.isInteger(state.selectedWire)) {
+    dispatch({ type: "removeWire", index: state.selectedWire });
+    return;
+  }
   if (state.selected) dispatch({ type: "remove", ref: state.selected });
+}
+
+deleteBtn.addEventListener("click", deleteSelected);
+clearWiresBtn.addEventListener("click", () => {
+  if (state.wires.length === 0) return;
+  if (!confirm(`清空全部 ${state.wires.length} 条导线？之后可以逐条重接。`)) return;
+  dispatch({ type: "clearWires" });
 });
 resetBtn.addEventListener("click", () => dispatch({ type: "reset" }));
 
@@ -398,9 +559,11 @@ window.addEventListener("keydown", (event) => {
     dispatch({ type: "cancel" });
     return;
   }
-  if ((event.key === "Delete" || event.key === "Backspace") && state.selected) {
-    event.preventDefault();
-    dispatch({ type: "remove", ref: state.selected });
+  if (event.key === "Delete" || event.key === "Backspace") {
+    if (Number.isInteger(state.selectedWire) || state.selected) {
+      event.preventDefault();
+      deleteSelected();
+    }
   }
 });
 
