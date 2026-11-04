@@ -18,6 +18,7 @@
     { "title": "M3 双端打通", "description": "C ABI 定稿 ＋ C# 四件套 ＋ wasm 封装 ＋ 三宿主字节一致。门禁 G3。" },
     { "title": "M4 演示页", "description": "Canvas 2D 演示页（只做 C3），含悬停五行数据与清空全部导线。门禁 G4，判据见 docs/demo.md §10。§10.1。" },
     { "title": "M5 交付收口", "description": "AGENT.md §4 回填实测命令、三份 README、台账齐账。门禁 G5。" },
+    { "title": "M6 网页实验台", "description": "M6 网页电路实验台（二维）：白画布自由放置 15 类器件、点接点接线、C1…C10 样例、即时重算，可从 Tailscale 网内打开。契约见 docs/playground.md，门禁 G6，切片见 docs/roadmap.md §7。" },
     { "title": "二期", "description": "本期明确不做、后续再上的能力。见 docs/roadmap.md §6。" }
   ],
   "issues": [
@@ -194,6 +195,66 @@
       "milestone": "二期",
       "labels": ["area/web"],
       "body": "**目标**：把二维演示升级为 three.js 三维实物接线；评估移动端 / macOS / Linux 与 Unity WebGL 的打包路径。\n\n**已铺好的路**：端子 id 与屏幕坐标已解耦（`TerminalId → (x,y)` 独立映射表），换三维只换映射表（`DECISION.md` D-20261103-16 / D-20261103-08）。\n\n**注意**：Unity WebGL Player 不能 `P/Invoke` 通用 DLL，若要做只能走 Web 侧 wasm；移动端需重新定义平台矩阵。"
+    },
+    {
+      "title": "[M6] 网页电路实验台：自由配置部件 ＋ 自由接线 ＋ 10 样例 ＋ Tailscale 可用",
+      "milestone": "M6 网页实验台",
+      "labels": ["area/web", "gate"],
+      "body": "## 目标\n\n把仓库现有的「固定 C3 演示页」升级为**二维电路实验台**：白画布上可自由放置 15 类器件、点接点即接线、任意改动即时重算；内置 C1…C10 十个电力拖动电路样例；结果与 `fixtures/` 既有期望值一致；最终可从 Tailscale 网内另一台设备打开使用。\n\n两个入口都要有：**① 从样例进入**（加载 10 份既有电路）**② 从白画布开始**（空网表自己搭）。\n\n## 为什么现在能做（现有资产，不要重造）\n\n- 计算内核、C ABI、wasm、JSON 门面均已验收：`bindings/web/pcx.js` 的 `loadPcx()` / `solve()` 直接可用，**本期不碰内核**。\n- `docs/demo.md` §3.4 已把 15 类器件的接点几何抽象成“相对盒子偏移”表 → 通用图元的几何契约**已经存在**，照它做即可。\n- `bindings/web/demo.js` 已有正交走线、框内裁剪（Liang–Barsky）、命中测试、接点表、悬停五行数据，可移植为模块。\n- `fixtures/C1…C10.json` 是 10 份带期望值的黄金案例（28 个 case）→ **十个样例的网表与“正确答案”都不用新造**。\n- `scripts/compare.mjs` 的比对逻辑可抽成库，作为自检脚本与浏览器自检页的同一份判据。\n\n## 验收判据（三段，缺一不算完成）\n\n1. **计算正确**：10 个样例在其 `fixtures/` case 状态下，页面输出的接点/器件值 ＝ 期望值（容差沿用 `docs/verification.md`）；`node scripts/playground-check.mjs` 与 CI 全绿。\n2. **自由配置与接线**：白画布可放置/移动/删除 15 类器件、点接点接线/删线、改参数、每次改动即时重算；20 条典型误接不崩且给出正确诊断码。\n3. **可用**：从 Tailscale 网内另一台设备打开页面，走完 `docs/playground.md` 的浏览器验收表。\n\n## 已拍板口径（D-20261104-01…10，切片 0 落进 DECISION.md）\n\n| 编号 | 口径 |\n|---|---|\n| 01 | 新建 `bindings/web/playground/` 与新文档 `docs/playground.md`；**不动已验收的 `demo.html` / `demo.js` / `docs/demo.md`** |\n| 02 | 零依赖原生 ES modules 静态页，无框架、无打包器，沿用 `scripts/serve.mjs`；**编辑状态用纯数据＋纯函数 reducer，DOM 只负责渲染与事件**（这样可 node 单测） |\n| 03 | 几何沿用 `docs/demo.md` §3.4 的相对偏移作为通用契约（扩到 15 类）；每 kind 给默认框尺寸；器件位置是数据、不是契约 |\n| 04 | 样例 = `playground/samples/C*.json` 只存 layout 与操作状态；网表与期望值**运行时读 `fixtures/`**，不复制第二份数值 |\n| 05 | C9 的 `rpm` 由人给（滑块/数字），**不建惯性模型**；假转速模型留二期 #28 |\n| 06 | 默认宽松模式（`strict_reference: false`，编辑中间态必须出数）；样例可切严格；两种都显示诊断 |\n| 07 | 可编辑参数子集：`POWER` 电压/频率、`QS` 极数、`KM`/`KA` 辅助组数、`SB`/`SQ` 类型、`FR` 整定、`KT` 延时、`R` 阻值、`TB` 位数；线圈阻抗/动作阈值等常量只读 |\n| 08 | 正确性判据三段化；新增 `scripts/playground-check.mjs` 与页面内自检页，两者共用同一份比对库 |\n| 09 | 部署：`scripts/serve.mjs` 增加可选 `--host`（默认行为不变），Tailscale 裸端口访问，**不用 funnel**，不暴露 3080/3000 |\n| 10 | 边界：不碰 `crates/core|cabi|wasm` 既有逻辑、不改 `fixtures/` 期望值、不改 `demo.*`；页面标注「本期只算电气量」 |\n\n## 切片与顺序（一片一 PR，串行）\n\n| 片 | 内容 | 依赖 |\n|---|---|---|\n| 0 | #38 docs(playground)：契约与台账（纯文档） | — |\n| 1 | #39 器件图元元数据与几何映射 | #38 |\n| 2 | #40 画布编辑器骨架 | #39 |\n| 3 | #41 接线交互与导线渲染 | #40 |\n| 4 | #42 十个样例与切换 | #39 #40 #41 |\n| 5 | #43 参数编辑与操作面板 | #42 |\n| 6 | #44 自检脚本与 CI | #42 |\n| 7 | #45 Tailscale 部署与验收 | #43 #44 |\n| 8 | #46 M6 收口 | #45 |\n\n## 边界（硬）\n\n- `crates/*`、`fixtures/`、`demo.html` / `demo.js` / `docs/demo.md` 一律不改（除切片 0 在 docs 里引用它们）。\n- 不得在应用层写电气规则（电压/电流/通断/互锁/延时都只能来自内核输出）。\n- 不得自行新增范围或改口径；歧义进 issue 提问。\n\n## 流程\n\n- `AGENT.md` 是唯一纪律手册，`docs/` 是内容事实源；冲突以 `AGENT.md` 为准。\n- 分支 `agent/<ticket 名>` → PR → `guard` 绿 → **由人（kuaizhongqiang）squash merge**；不启用 auto-merge。\n- 一个切片一个 PR；不顺手做别的切片。\n- 每片收尾：`node .agent/skills/doc-guard/check.mjs` ＋ 三台账同步（TODO 删、DECISION 追加、RECORD 登记）。\n- 中文不进命令行：提交信息与 PR body 写 UTF-8 文件，用 `git commit -F` / `gh pr create --body-file`。\n- PR 描述第一段披露：本 PR 由 dsh-superagent（智能体账号 KzqBotByDSHSuperAgent，AI）产出，依据 issue #N。\n"
+    },
+    {
+      "title": "[M6.0] docs(playground)：实验台契约、口径与台账（纯文档）",
+      "milestone": "M6 网页实验台",
+      "labels": ["area/docs", "contract"],
+      "body": "## 目标\n\n为 M6 立契约（纯文档，不改一行代码）：把 epic #37 的目标、边界与已拍板口径落成仓库内的事实源，后续切片全部照它实现。\n\n## 必做\n\n1. 新建 `docs/playground.md`（功能/设计文档，第 3 行起五行头：读者/类型/权威/状态/依赖）：\n   - §1 目标与两个入口（样例 / 白画布）、与 `demo.md`（固定 C3）的关系；\n   - §2 应用结构：`bindings/web/playground/` 文件清单、模块职责、零依赖与「纯数据＋纯函数 reducer」约定；\n   - §3 器件图元契约：15 类 kind 的符号、默认框尺寸、接点几何（引用并扩充 `demo.md` §3.4，**不复制其表格数值以外的口径**，接点表引用 `domain-model.md` §2）；\n   - §4 样例契约：`samples/C*.json` schema（`case` / `fixture` / `layout[]` / `initial` / `note`）、layout 必须覆盖全部器件、运行时从 `fixtures/` 读网表与期望值；\n   - §5 交互状态机：放置/选中/拖动/删除/接线/删线/取消/操作器件/改参数，含自连与重复线拒绝规则；\n   - §6 显示分层：画布只标电压、电流进接点表、导线清单、诊断栏文案（错误码→中文）；\n   - §7 参数编辑子集与只读常量（口径 07）；\n   - §8 正确性判据：样例复算、20 条典型误接清单与期望诊断码、页面内自检页判据；\n   - §9 部署与 tailnet：启动命令、访问地址形态、不用 funnel、不暴露 3080/3000；\n   - §10 浏览器验收表（D-1…D-20，等价覆盖 `demo.md` 的 D-6/D-7/D-8/D-10）与验收记录表。\n2. `DECISION.md` 追加 D-20261104-01…10（照 epic #37 的口径表逐条落，只追加不改旧条目）。\n3. `docs/roadmap.md` 追加 §6 之后的 M6 里程碑与门禁 G6（判据引用 `docs/playground.md` §8），并把原「二期清单」中「自由拖拽实物接线」一行改成「本期由 M6 承接（二维）」。\n4. `TODO.md`：§1 无待拍板（若有新歧义再追加 P-23 起）；§2 按 M6 切片登记 T 条目。\n5. `docs/README.md` §1 文档清单加 `playground.md` 一行。\n6. `.agent/skills/gh-plan/plan.json`：加 milestone `M6 网页实验台` 与 epic/切片 issue（标题与 GitHub 上一致，幂等可跑）。\n7. `AGENT.md` §5 索引表加一行指向 `docs/playground.md`；`README.md`「怎么读这个仓库」加一行。\n\n## 验收判据（可执行）\n\n- `node .agent/skills/doc-guard/check.mjs` 全绿（索引、五行头、台账编号、fixtures 字段）。\n- `node .agent/skills/gh-plan/apply.mjs --dry-run` 输出「无缺失」（或只缺已存在的同标题）。\n- `git --no-pager diff --stat` 只含文档与 plan.json，**零代码改动**。\n\n## 改动路径白名单\n\n`docs/playground.md`（新）、`docs/README.md`、`docs/roadmap.md`、`DECISION.md`、`TODO.md`、`RECORD.md`、`AGENT.md`（仅 §5 索引加一行）、`README.md`（仅读法表加一行）、`.agent/skills/gh-plan/plan.json`。\n\n## 红线\n\n- 不改 `demo.md` / `fixtures/` / 任何 `crates/*` 代码；不新增口径，口径以 epic #37 为准；有异议在本 issue 评论提问并停下。\n"
+    },
+    {
+      "title": "[M6.1] feat(web)：15 类器件图元元数据与几何映射（纯逻辑＋单测）",
+      "milestone": "M6 网页实验台",
+      "labels": ["area/web"],
+      "body": "## 目标\n\n在 `bindings/web/playground/` 下建立 **15 类器件的图元元数据与几何映射**，纯逻辑、可 node 单测，供后续画布与渲染复用。\n\n## 必做\n\n- `device-catalog.js`：每 kind 的 `terminals[]`（名称、序号、边）、`stateBits`（照 `docs/api.md` §3）、`params[]` 编辑字段（照 `docs/playground.md` §7）、`defaultBox`（宽高）、`label` / 符号类型。\n- `geometry.js`：`terminalPoint(device, terminalIndex)` ＝ 盒子左上角 ＋ `(u×w, v×h)`，边界标注方向（照 `docs/playground.md` §3 与 `docs/demo.md` §3.4）。\n- `model.js`（第一版）：`placeDevice` / `moveDevice` / `removeDevice`（含级联删线）/ `allocIds`（`id` 与 `terminal_base` 连续分配；删除后可重排，但不改变未删器件的接点）。\n- `test/`：用 Node 内置 `node --test`（零依赖），覆盖：15 类接点数与 `docs/domain-model.md` §2 一致；几何表每条偏移逐项断言；`terminal_base` 分配与 `TB` 可变接点数。\n\n## 验收判据\n\n- `node --test bindings/web/playground/test/` 全绿。\n- 覆盖断言可逐条对应 `domain-model.md` §2 与 `playground.md` §3 的表格行，不得用“大概一致”。\n\n## 路径白名单\n\n`bindings/web/playground/**`（新增）。不改 `demo.*`、不改 `crates/*`、不改 `fixtures/`。\n"
+    },
+    {
+      "title": "[M6.2] feat(web)：画布编辑器骨架（白画布、器件面板、放置/拖动/删除、即时求解）",
+      "milestone": "M6 网页实验台",
+      "labels": ["area/web"],
+      "body": "## 目标\n\n画布编辑器骨架：**从白画布开始**，从器件面板放置 15 类器件、选中、拖动、删除，任意改动即时重算并渲染接点电压。\n\n## 必做\n\n- `state.js`：纯数据 reducer（无 DOM）——事件入、状态出：`place` / `select` / `move` / `remove` / `setParam` / `operate` / `loadSample` / `reset`。\n- `solve.js`：状态 → `pcx.js` 入参（`devices[]` / `wires[]` / `config` / `strict_reference`）→ 调 `solve` → 结果并入状态；失败保留上次结果并置错误条。\n- `canvas.js` + `index.html`：渲染器件框、位号/名称、接点圆点与编号、接点电压；顶部状态条（器件数/接点数/导线数/诊断）。\n- 启动自检：`pcx` 加载失败或 `bindings/web/pkg/pcx_circuit.wasm` 缺失时，红条给出构建命令。\n- 宽松模式（口径 06）：空画布必须 `solve` 成功并正常出数。\n\n## 验收判据\n\n- `node --test`：reducer 单测（放置/移动/删除/选中/清空）。\n- 浏览器：打开 `index.html`，空画布不报错；依次放置 15 类各 1 台不崩；拖动与删除后接点数正确（附前后截图）。\n- 每次改动后主线程无未捕获异常（控制台截图）。\n\n## 路径白名单\n\n`bindings/web/playground/**`。不改 `demo.*`、`crates/*`、`fixtures/`。\n"
+    },
+    {
+      "title": "[M6.3] feat(web)：接线交互与导线渲染（点接点连线、删线、正交走线、框内裁剪）",
+      "milestone": "M6 网页实验台",
+      "labels": ["area/web"],
+      "body": "## 目标\n\n接线交互：**点接点 A → 点接点 B 加线**、点导线删线、取消选择；导线正交走线、穿器件框的段落裁掉；导线清单与通电着色。\n\n## 必做\n\n- reducer 扩展：`addWire(a,b)` / `removeWire(i)` / `cancel()`；拒绝自连、重复线、越界接点、未知接点。\n- 走线：先横后竖（或先竖后横）正交化；复用/移植 `demo.js` 的 `segBoxInterval` 与 `visibleRuns`（Liang–Barsky 裁剪）为模块函数并加单测。\n- 渲染：通电 `I ≥ 1 mA` 红色、否则灰；选中/悬停高亮；新加线 2 秒光晕（照 `docs/demo.md` 实现备注）。\n- 导线清单表：序号 / from / to / 电流，可点行高亮；删除器件级联删线。\n\n## 验收判据\n\n- `node --test`：`addWire` 拒绝自连/重复/越界；`removeDevice` 级联删线；正交化与裁剪函数用固定用例表断言。\n- 浏览器：在白画布手接 `fixtures/C3.json` 的 30 条导线，点 `SB2` 得 `M1` 每相 `5.02 A`、`KM1` 线圈 `26.35 mA`；删掉 `KM1.13–SB3.2` 后松手即 `0 A`（附截图与数值）。\n"
+    },
+    {
+      "title": "[M6.4] feat(web)：C1…C10 十个样例与切换（layout sidecar ＋ 读 fixtures）",
+      "milestone": "M6 网页实验台",
+      "labels": ["area/web"],
+      "body": "## 目标\n\n10 个样例：`C1…C10` 都能从样例列表加载（网表与期望值来自 `fixtures/`），支持切换、重置、以及从白画布开始。\n\n## 必做\n\n- `samples/C1.json … C10.json`：`case` / `fixture`（如 `fixtures/C3.json`）/ `layout`（每器件 `ref`、`x`、`y`、`w`、`h`）/ `initial` / `note`；layout 必须覆盖该 fixture 的全部 `ref`，坐标不重叠且落在画布内。\n- `samples.js`：加载 fixture → 套 layout → 生成初始状态（`state_bits` / `flags` 取 `fixtures` 的初始值）；样例下拉、重置、白画布入口。\n- 页面标注「本期只算电气量」（口径 10）：C7/C8/C9 无转速转矩，C8 制动电流恒 0 属已声明设计（引用 `docs/verification.md` §5）。\n- `scripts/playground-check.mjs` 第一版：校验 10 份 samples 的 `fixture` 存在、layout 覆盖完整、无重复 ref、坐标合法。\n\n## 验收判据\n\n- `node scripts/playground-check.mjs` 输出 10/10 通过。\n- 浏览器：逐个加载 10 样例，初始态 `solve` 成功、无 error 诊断；C3 初始态 `M1` 三相 `0 A`（附截图）。\n"
+    },
+    {
+      "title": "[M6.5] feat(web)：参数编辑与操作面板（含 C9 转速滑块）",
+      "milestone": "M6 网页实验台",
+      "labels": ["area/web"],
+      "body": "## 目标\n\n参数编辑与操作面板：能改口径 07 的可编辑参数，能操作按钮/开关/行程开关/时间继电器/热继电器/速度继电器；C9 用转速滑块驱动 `KS` 动作。\n\n## 必做\n\n- 属性面板：按 `docs/playground.md` §7 的字段表渲染表单；只读常量灰显并给来源（`domain-model.md` §4 / `solver.md` §5）。\n- 操作：`SB` 按下/松开（`state_bits`）、`SQ` 动作/复位、`QS` 通断、`KT` / `FR` 整定值、`KS` 转速滑块（`rpm` 由应用给，口径 05）。\n- 参数改变后必须**全量重算并重绘**；非法值（如电压 0）给行内错误、不调 solver。\n- 诊断栏：错误码 → 中文文案（`E_NO_REFERENCE` / `E_SHORT_CIRCUIT` / `E_MULTI_REFERENCE` / `W_IMPLICIT_REFERENCE` / `E_OSCILLATION` 等），照 `docs/api.md` §5。\n\n## 验收判据\n\n- `node --test`：表单校验纯函数（范围/类型）、`rpm` → `KS` 期望 `state_bits` 的映射表。\n- 浏览器：电源 380→220 V 后 `M1` 电流按比例变化（关系类断言，不写死绝对值）；`KT` 整定值改变影响 `55-56` 闭合时刻；C9 滑块过吸合转速后 `13-14` 闭合、降到释放转速以下断开（附数值与截图）。\n"
+    },
+    {
+      "title": "[M6.6] test(web)：自检脚本、页面自检页与 CI（10 样例 × 28 case ＋ 20 条误接）",
+      "milestone": "M6 网页实验台",
+      "labels": ["area/web", "area/ci"],
+      "body": "## 目标\n\n把「计算正确」变成机器判据：自检脚本、页面内自检页、CI 接入与 20 条误接用例。\n\n## 必做\n\n- 抽出比对库 `scripts/lib/fixture-compare.mjs`（把 `compare.mjs` 的判据逻辑提出来复用，**不复制第二份容差**），`compare.mjs` 与 `playground-check.mjs` 都调它。\n- `scripts/playground-check.mjs` 完整版：① 样例↔fixtures 一致性 ② 几何表 vs 接点数 ③ 10 样例逐 case 复算（wasm 侧）④ 20 条典型误接（自连/重复线/悬空器件/缺 PE/双 PE/孤立分量/短路/删地线等）不崩且 `code` 与期望一致。\n- 页面 `playground/selftest.html`：浏览器里对 10 样例逐 case 复算，绿/红表；供人验收与 tailnet 访问。\n- `.github/workflows/ci.yml` 的 `wasm` job 末尾加一步 `node scripts/playground-check.mjs`（不新增 required check 名称，保持 `guard` 语义不变）。\n\n## 验收判据\n\n- 本地 `node scripts/playground-check.mjs` 全绿（28 个 case ＋ 20 条误接）。\n- PR 的 CI 上该步骤绿；`compare.mjs` 行为不变（同一回归）。\n\n## 路径白名单\n\n`scripts/**`、`bindings/web/playground/**`、`.github/workflows/ci.yml`。不改 `fixtures/` 期望值（若发现期望值有误，**停下提问**，不许自行改）。\n"
+    },
+    {
+      "title": "[M6.7] feat+docs(web)：Tailscale 部署与浏览器验收",
+      "milestone": "M6 网页实验台",
+      "labels": ["area/web", "area/ci"],
+      "body": "## 目标\n\n让负责人从 Tailscale 网内另一台设备打开并使用实验台，并留下可复现的验收记录。\n\n## 背景（已实测的环境事实）\n\n- 本机 tailnet 名 `kuaizhongqiang01`，IP `100.87.60.42`，MagicDNS 开启（`kuaizhongqiang01.tail61fc44.ts.net`）；8080 空闲。\n- 3080（DSH 面板）与 3000 已被别的服务占用，**不要动**；也不要用 `tailscale funnel`（会暴露到公网）。\n\n## 必做\n\n- `scripts/serve.mjs` 增加可选 `--host <addr>`（默认保持现状），用于 `--host 0.0.0.0`；不改变既有用法与输出。\n- `docs/playground.md` 补「部署与 tailnet」：启动命令、访问地址（IP 与 MagicDNS 两种）、常驻方式（tmux 或 nohup，给一条可复制的命令）、安全说明（仅 tailnet、不用 funnel、不暴露其它端口）。\n- 浏览器验收：在 `docs/playground.md` 验收记录里登记日期、设备、通过项，并附页面截图（自检页 + 任意样例）。\n\n## 验收判据\n\n- 在本机 `node scripts/serve.mjs 8080 --host 0.0.0.0` 后，从另一台 tailnet 设备可打开 `http://100.87.60.42:8080/bindings/web/playground/index.html`，完成验收表。\n- `node scripts/serve.mjs`（无参数）行为与现在完全一致。\n\n## 说明\n\n本片验收需要负责人用另一台设备操作；执行者可先自测（本机 curl / 浏览器），把「待人工确认」写进报告。\n"
+    },
+    {
+      "title": "[M6.8] docs(repo)：M6 收口（README、roadmap 门禁、三台账）",
+      "milestone": "M6 网页实验台",
+      "labels": ["documentation", "area/docs"],
+      "body": "## 目标\n\nM6 收口：README 与索引更新、门禁结果回写、三台账齐账，让新机器按文档一次跑通。\n\n## 必做\n\n- `README.md`：目录表加 `bindings/web/playground/`；「现在到哪一步」加 M6 状态；快速开始加实验台命令。\n- `bindings/web/README.md`：四件套表加 playground（文件、构建、启动、自检）。\n- `docs/playground.md`：状态行与验收记录定稿；`docs/roadmap.md` 门禁表补 G6 结论与证据（命令与真实输出）。\n- 三台账：`TODO.md` 删除对应 T 条目；`RECORD.md` 追加 R-NN（每个已合并 PR 一条）；`DECISION.md` 若有后续拍板一并追加。\n- `AGENT.md` §4 命令清单补：`node scripts/playground-check.mjs`、`node scripts/serve.mjs 8080 --host 0.0.0.0`。\n\n## 验收判据\n\n- `node .agent/skills/doc-guard/check.mjs` 全绿；`cargo test --workspace` 全绿；`node scripts/compare.mjs` 通过；`node scripts/playground-check.mjs` 全绿。\n- 按 README 从零走一遍能打开实验台（记录命令与输出）。\n"
     }
   ]
 }

@@ -3,7 +3,7 @@
 读者：AI / 负责人
 类型：台账
 权威：已提交变更的唯一清单
-状态：2026-11-03 建立；已登记 `R-01`…`R-07`
+状态：2026-11-04 更新；已登记 `R-01`…`R-08`
 依赖：`DECISION.md`（口径来源）
 
 ## 0 写法
@@ -25,3 +25,4 @@
 | `R-05` | `c7f31d3` | `fix(web): 修演示页「看不出接线」—— termById 未填充 + 导线红色 + 框内裁剪 + 开关符号 + 瞬动按钮 (#33)` | `bindings/web/demo.js` `bindings/web/demo.html` `docs/demo.md` §7 |
 | `R-06` | `972270f` | `docs(repo): M5 收口 —— 门禁结果回写、台账齐账、CI 口径恢复、演示页验收记录 (#34)` | `docs/roadmap.md` §3.1 `docs/demo.md` §10.2 `DECISION.md`（D-29/D-30）`TODO.md` `RECORD.md` |
 | `R-07` | `6b1084c` | `ci(release): 新增 tag 发布流水线，版本从 v0.0.0 起 (#35)` | `.github/workflows/release.yml` `Cargo.toml`(0.0.0) `crates/cabi`(版本串去硬编码) `.agent/workflows/05-release.md` `DECISION.md`（D-31） |
+| `R-08` | `2ee29df` | `docs(record): 补登 R-06 / R-07 并标注当前版本 v0.0.0 (#36)` | `RECORD.md` `README.md` |

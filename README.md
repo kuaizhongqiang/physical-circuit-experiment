@@ -108,6 +108,7 @@ node .agent/skills/doc-guard/check.mjs
 | 看接口契约与错误码 | [`docs/api.md`](docs/api.md) |
 | 看验收案例与基线 | [`docs/verification.md`](docs/verification.md) |
 | 看演示页规格 | [`docs/demo.md`](docs/demo.md) |
+| 看网页实验台（M6）契约与验收 | [`docs/playground.md`](docs/playground.md) |
 | 看实施顺序与门禁 | [`docs/roadmap.md`](docs/roadmap.md) |
 | 还没做 / 已拍板 | [`TODO.md`](TODO.md) / [`DECISION.md`](DECISION.md) |
 

@@ -99,6 +99,7 @@
 | 黄金案例断言、基线值、容差、已知不覆盖 | `docs/verification.md` |
 | 实施顺序、里程碑 M0–M5 与门禁 G0–G5、二期清单 | `docs/roadmap.md` |
 | 演示页电路网表、布局坐标、接点几何、配色、交互、验收 D-1…D-9 | `docs/demo.md` |
+| 网页实验台（M6）：两个入口、图元几何、样例、交互、参数、判据、tailnet 部署、验收 D-1…D-20 | `docs/playground.md` |
 | agent 怎么动手：流程 / 技能脚本 / 样例 / 踩坑笔记 | `.agent/README.md` |
 | CI、issue 与 PR 模板 | `.github/workflows/ci.yml`、`.github/ISSUE_TEMPLATE/` |
 | 还没做 / 待拍板 | `TODO.md` §1 / §2 |
