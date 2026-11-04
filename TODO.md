@@ -21,7 +21,6 @@
 
 M6 网页电路实验台按切片串行推进（一片一 PR，顺序与门禁见 `docs/roadmap.md` §7、契约见 `docs/playground.md`）：
 
-- **T-17**（M6.3 / #41）接线交互与导线渲染：点接点连线、删线、正交走线、框内裁剪（Liang–Barsky）与单测。
 - **T-18**（M6.4 / #42）C1…C10 十样例与切换：`samples/C*.json`（layout ＋ 操作状态）＋ `samples.js` ＋ `scripts/playground-check.mjs` 首版。
 - **T-19**（M6.5 / #43）参数编辑与操作面板：可编辑参数子集、器件操作、C9 转速滑块。
 - **T-20**（M6.6 / #44）自检脚本、页面自检页与 CI：`scripts/lib/fixture-compare.mjs`、完整 `playground-check.mjs`、`selftest.html`、CI `wasm` job 加一步。

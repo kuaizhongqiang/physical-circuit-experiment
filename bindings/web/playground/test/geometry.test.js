@@ -9,10 +9,18 @@ import {
   TERMINAL_DOT_RADIUS,
   TERMINAL_HIT_RADIUS,
   TERMINAL_LABEL_OFFSET,
+  WIRE_HIT_DISTANCE,
+  WIRE_LEAD,
   edgeNormal,
   labelPoint,
+  outwardPoint,
+  pointSegmentDistance,
+  runsHit,
+  segBoxInterval,
   terminalGeometry,
   terminalPoint,
+  visibleRuns,
+  wirePoints,
 } from "../geometry.js";
 
 const row = (index, name, edge, u, v) => ({ index, name, edge, u, v });
@@ -317,4 +325,131 @@ test("序号越界 / 盒子缺字段 / 未知 kind 明确报错", () => {
   assert.throws(() => terminalGeometry(device, 1.5), /没有序号为 1\.5 的接点/);
   assert.throws(() => terminalGeometry({ ...device, w: undefined }, 0), /缺少有效的 w/);
   assert.throws(() => terminalGeometry({ ...device, kind: "NOPE" }, 0), /未知器件 kind/);
+});
+
+// ── M6.3 导线：正交走线 ＋ Liang–Barsky 框内裁剪（issue #41） ────────────────
+
+test("outwardPoint 按接点边向外偏 16 px（左 / 右 / 上 / 下）", () => {
+  assert.equal(WIRE_LEAD, 16);
+  assert.deepEqual(outwardPoint({ x: 10, y: 20, edge: "left" }), { x: -6, y: 20 });
+  assert.deepEqual(outwardPoint({ x: 10, y: 20, edge: "right" }), { x: 26, y: 20 });
+  assert.deepEqual(outwardPoint({ x: 10, y: 20, edge: "top" }), { x: 10, y: 4 });
+  assert.deepEqual(outwardPoint({ x: 10, y: 20, edge: "bottom" }), { x: 10, y: 36 });
+});
+
+test("wirePoints 固定用例：外引 ＋ 先横后竖折点；对齐时退化为直线", () => {
+  const a = { x: 100, y: 100, edge: "right" };
+  const b = { x: 300, y: 200, edge: "left" };
+  // a → (116,100)；先横到 (284,100)，再竖到 (284,200)；到 b。
+  assert.deepEqual(wirePoints(a, b), [
+    { x: 100, y: 100 },
+    { x: 116, y: 100 },
+    { x: 284, y: 100 },
+    { x: 284, y: 200 },
+    { x: 300, y: 200 },
+  ]);
+
+  // y 已经对齐：不加折点，只有外引段。
+  const sameRow = wirePoints(
+    { x: 100, y: 100, edge: "right" },
+    { x: 300, y: 100, edge: "left" },
+  );
+  assert.deepEqual(sameRow, [
+    { x: 100, y: 100 },
+    { x: 116, y: 100 },
+    { x: 284, y: 100 },
+    { x: 300, y: 100 },
+  ]);
+
+  // 顶 / 底边：x 已经对齐，先竖后横退化为一条竖线。
+  const vertical = wirePoints(
+    { x: 100, y: 100, edge: "top" },
+    { x: 100, y: 300, edge: "bottom" },
+  );
+  assert.deepEqual(vertical, [
+    { x: 100, y: 100 },
+    { x: 100, y: 84 },
+    { x: 100, y: 316 },
+    { x: 100, y: 300 },
+  ]);
+
+  // 终点是顶边：折点先竖后横，最后一段从框外垂直进入顶边（不穿框）。
+  const toTop = wirePoints(
+    { x: 100, y: 100, edge: "right" },
+    { x: 300, y: 200, edge: "top" },
+  );
+  assert.deepEqual(toTop, [
+    { x: 100, y: 100 },
+    { x: 116, y: 100 },
+    { x: 116, y: 184 },
+    { x: 300, y: 184 },
+    { x: 300, y: 200 },
+  ]);
+});
+
+test("segBoxInterval：Liang–Barsky 求交固定用例", () => {
+  const box = { x: 100, y: 100, w: 100, h: 50 };
+  // 横穿整框：t = 0.4 … 0.8（x = 100 … 200，线段 x 0 … 250）。
+  assert.deepEqual(segBoxInterval(0, 125, 250, 125, box), [0.4, 0.8]);
+  // 从框上边进入、穿过框下边：t = 0 … 0.5。
+  assert.deepEqual(segBoxInterval(150, 100, 150, 200, box), [0, 0.5]);
+  // 完全在框外 / 平行于边且在框外。
+  assert.equal(segBoxInterval(0, 0, 50, 0, box), null);
+  // 沿框上边：两侧边界都算，区间 [0.5, 1]。
+  assert.deepEqual(segBoxInterval(0, 100, 200, 100, box), [0.5, 1]);
+  // 端点刚好在框边界外侧（从 x=200 向右）不算框内。
+  assert.equal(segBoxInterval(200, 125, 300, 125, box), null);
+});
+
+// Liang–Barsky 的 t 是浮点数，比较前统一收敛到 6 位小数。
+function roundRuns(runs) {
+  const round = (value) => Number(value.toFixed(6));
+  return runs.map((run) => ({
+    x1: round(run.x1), y1: round(run.y1), x2: round(run.x2), y2: round(run.y2),
+  }));
+}
+
+test("visibleRuns：裁掉框内段落，保留框外可见段（含多框重叠）", () => {
+  const boxes = [{ x: 100, y: 90, w: 100, h: 20 }];
+  const points = [{ x: 0, y: 100 }, { x: 250, y: 100 }];
+  assert.deepEqual(roundRuns(visibleRuns(points, boxes)), [
+    { x1: 0, y1: 100, x2: 100, y2: 100 },
+    { x1: 200, y1: 100, x2: 250, y2: 100 },
+  ]);
+
+  // 两个框的裁剪区间重叠：并集是 x = 100 … 250，不能画出中间的 150…200。
+  const overlapping = [
+    { x: 100, y: 90, w: 100, h: 20 },
+    { x: 150, y: 90, w: 100, h: 20 },
+  ];
+  assert.deepEqual(roundRuns(visibleRuns([{ x: 0, y: 100 }, { x: 300, y: 100 }], overlapping)), [
+    { x1: 0, y1: 100, x2: 100, y2: 100 },
+    { x1: 250, y1: 100, x2: 300, y2: 100 },
+  ]);
+
+  // 折线逐段裁剪；零长段不输出；没有框时每段一条 run。
+  const polyline = [
+    { x: 0, y: 0 },
+    { x: 150, y: 0 },
+    { x: 150, y: 150 },
+    { x: 150, y: 150 },
+  ];
+  assert.deepEqual(roundRuns(visibleRuns(polyline, [boxes[0]])), [
+    { x1: 0, y1: 0, x2: 150, y2: 0 },
+    { x1: 150, y1: 0, x2: 150, y2: 90 },
+    { x1: 150, y1: 110, x2: 150, y2: 150 },
+  ]);
+  assert.equal(visibleRuns(polyline, []).length, 2);
+});
+
+test("点选辅助：点到线段距离与命中判定（容差 5 px）", () => {
+  assert.equal(WIRE_HIT_DISTANCE, 5);
+  assert.equal(pointSegmentDistance(50, 3, 0, 0, 100, 0), 3);
+  assert.equal(pointSegmentDistance(-10, 0, 0, 0, 100, 0), 10);
+  assert.equal(pointSegmentDistance(50, 4, 50, 0, 50, 100), 0);
+
+  const runs = [{ x1: 0, y1: 0, x2: 100, y2: 0 }];
+  assert.equal(runsHit(runs, { x: 50, y: 3 }), true);
+  assert.equal(runsHit(runs, { x: 50, y: 6 }), false);
+  assert.equal(runsHit([], { x: 0, y: 0 }), false);
 });

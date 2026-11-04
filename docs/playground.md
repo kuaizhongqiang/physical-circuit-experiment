@@ -69,7 +69,7 @@ scripts/
 
 | 模块 | 只做 | 不做 |
 |---|---|---|
-| `state.js` | 纯数据 ＋ reducer：`place` / `select` / `move` / `remove` / `setParam` / `operate` / `addWire` / `removeWire` / `clearWires` / `cancel` / `loadSample` / `reset` | 不碰 DOM、不调 `solve`、不读 `Date` |
+| `state.js` | 纯数据 ＋ reducer：`place` / `select` / `move` / `remove` / `setParam` / `operate` / `pickTerminal` / `completeWire` / `addWire` / `removeWire` / `selectWire` / `clearWires` / `cancel` / `loadSample` / `reset` | 不碰 DOM、不调 `solve`、不读 `Date` |
 | `model.js` | 器件增删改与接点 id / `terminal_base` 分配、导线端点重写（纯函数） | 不含布局坐标、不碰 DOM |
 | `solve.js` | 把 state 映射成 `{devices, wires, config, strict_reference}`，调 `pcx.solve`，把 `terminals` / `devices` / `diags` 并入 state | 不做任何电气判定、不改输入数值 |
 | `device-catalog.js` | 每 kind 的接点表、`stateBits`、可编辑参数定义、默认框尺寸、符号 / 显示名 | 不含布局坐标（坐标是数据） |
@@ -239,7 +239,7 @@ DOM 事件 ──► reducer(state, event) ──► next state ──► solve(
 
 ### 5.1 状态与事件
 
-state 是纯数据：`{ mode, devices[], wires[], selected, pendingTerminal, drag, sample, result, diags, strictReference }`。模式（`mode`）只有 `IDLE` / `PICK_A` / `DRAG` 三种；参数编辑与操作不引入新模式，直接由事件进 reducer。
+state 是纯数据：`{ mode, devices[], wires[], selected, selectedWire, pendingTerminal, drag, sample, result, diags, strictReference }`。模式（`mode`）只有 `IDLE` / `PICK_A` / `DRAG` 三种；参数编辑与操作不引入新模式，直接由事件进 reducer。`selected`（器件 ref）与 `selectedWire`（`wires` 下标）互斥；任何改变 `wires` 下标或网表的提交型事件都会清空 `selectedWire`。
 
 | 事件 | 从 | 到 | 提交型？ | 行为 |
 |---|---|---|---|---|
@@ -249,9 +249,11 @@ state 是纯数据：`{ mode, devices[], wires[], selected, pendingTerminal, dra
 | `moveCommit(ref, dx, dy)` | `DRAG` | `IDLE` | 是 | 提交坐标；`solve` ＋ 重绘 |
 | `remove(ref)` | `IDLE` / `PICK_A` | `IDLE` | 是 | 级联删线、重排 id / `terminal_base`、重写导线；`solve` |
 | `pickTerminal(term)` | `IDLE` | `PICK_A` | 否 | 记下 `pendingTerminal` |
-| `completeWire(term)` | `PICK_A` | `IDLE` | 是 | 通过 §5.2 校验后追加 `{a,b}`；`solve` |
-| `removeWire(index)` | 任意 | 同前 | 是 | 删除该导线；`solve` |
-| `cancel()` / `Esc` / 点空白 | `PICK_A` / `DRAG` | `IDLE` | 否 | 取消待接线 / 拖动，回到提交前状态 |
+| `completeWire(term)` | `PICK_A` | `IDLE` | 是 | 通过 §5.2 校验后追加 `{a,b}`；拒绝则回 `IDLE` 并给 warn（不 `solve`） |
+| `addWire(a, b)` | 任意 | `IDLE` | 是 | 直接按接点 id 加线（与 `completeWire` 共用同一校验）；拒绝规则同 §5.2 |
+| `removeWire(index)` | 任意 | 同前 | 是 | 删除该导线并清空 `selectedWire`；`solve` |
+| `selectWire(index)` | 任意 | `IDLE` | 否 | 选中 / 取消选中导线（同时清空器件选中与待接线） |
+| `cancel()` / `Esc` / 点空白 | `PICK_A` / `DRAG` | `IDLE` | 否 | 取消待接线 / 拖动 / 导线选中，回到提交前状态 |
 | `operate(ref, action)` | `IDLE` | `IDLE` | 是 | 按 §5.4 改 `state_bits` / `rpm` / `elapsed_ms`；`solve` |
 | `setParam(ref, field, value)` | `IDLE` | `IDLE` | 是 | 校验通过才改；接点数变化时按 §2.4 重排；`solve` |
 | `clearWires()` | `IDLE` | `IDLE` | 是 | 一次清空 `wires`（先确认）；`solve` |
@@ -300,7 +302,7 @@ state 是纯数据：`{ mode, devices[], wires[], selected, pendingTerminal, dra
 
 - 只显示**接点电压**（10 px，`220.0V` 形式）；电流不画在画布上（信息量太大）。
 - 器件框 + 符号 + 位号 + 器件名；接点圆点 + 接点编号（按 §3.1 的边向外偏 6 px）。
-- 导线：正交走线；通电（`I ≥ 1 mA`）红色、断电灰色；预览橙色虚线；穿器件框的段落用 Liang–Barsky 裁剪掉（只画框外可见段）。
+- 导线：正交走线；通电（`I ≥ 1 mA`）红色、断电灰色；预览橙色虚线；穿器件框的段落用 Liang–Barsky 裁剪掉（只画框外可见段）。新加的导线额外一层红色光晕 2 秒、下方白色打底（观感按 `demo.md` §4「实现备注」，不复制第二份数值口径）。
 - 选中器件高亮边框；接线中第一个接点高亮（橙色）。
 - 数值格式、配色沿用 `demo.md` §6 / §4，**不复制第二份**。
 
@@ -401,7 +403,7 @@ state 是纯数据：`{ mode, devices[], wires[], selected, pendingTerminal, dra
 | **M-19** | 白画布 | 空网表（0 器件 / 0 导线） | `OK`(0) | 无 error | 空画布必须能出数 |
 | **M-20** | C3 | 删 `FR1.96–KM1.A1`（控制回路少一根线） | `OK`(0) | 无 error（`KM1` 不吸合） | 逻辑错误不一定是内核错误，靠接点表观察 |
 
-- `REJECT` 由 reducer 的校验函数判定（M6.4 / M6.6 单测覆盖），其余走 wasm。
+- `REJECT` 由 reducer 的校验函数判定（M6.3 起有 `node --test` 单测；M6.4 / M6.6 纳入机器判据），其余走 wasm。
 - 误接清单是本文件的契约；实现时**不得增删条目**，除非负责人拍板（进 `TODO.md` §1）。
 
 ### 8.4 页面内自检页判据

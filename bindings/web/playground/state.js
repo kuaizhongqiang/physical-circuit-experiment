@@ -36,6 +36,7 @@ const REF_PREFIX = Object.freeze({
 // 提交型事件：必须重新 solve（§5.3 第 1 条）。select / movePreview / cancel 不在其中。
 const COMMIT_TYPES = Object.freeze(new Set([
   "place", "moveCommit", "remove", "setParam", "operate", "loadSample", "reset", "clear", "setStrict",
+  "addWire", "completeWire", "removeWire", "clearWires",
 ]));
 
 const MARGIN = 24;
@@ -50,6 +51,7 @@ export function createInitialState(overrides = {}) {
     devices: [],
     wires: [],
     selected: null,
+    selectedWire: null,
     pendingTerminal: null,
     drag: null,
     sample: null,
@@ -59,6 +61,7 @@ export function createInitialState(overrides = {}) {
     solveError: null,
     paramError: null,
     notice: null,
+    noticeLevel: "info",
     revision: 0,
     needsSolve: false,
     solveRevision: 0,
@@ -172,11 +175,13 @@ function commit(state, patch = {}) {
     mode: MODE.IDLE,
     pendingTerminal: null,
     drag: null,
+    selectedWire: null,
     revision: (state.revision ?? 0) + 1,
     needsSolve: true,
     solveError: null,
     paramError: null,
     notice: null,
+    noticeLevel: "info",
     ...patch,
   };
 }
@@ -366,7 +371,7 @@ function placeEvent(state, event) {
 
 function selectEvent(state, event) {
   const device = resolveDevice(state, event);
-  return { ...state, selected: device?.ref ?? null };
+  return { ...state, selected: device?.ref ?? null, selectedWire: null };
 }
 
 function movePreviewEvent(state, event) {
@@ -424,6 +429,129 @@ function operateEvent(state, event) {
     item.ref === device.ref ? { ...item, state_bits: bits, flags: 1 } : item
   ));
   return commit({ ...state, devices }, { selected: device.ref });
+}
+
+// ── 接线（§5.2 拒绝规则 / §5.3 提交型变更） ─────────────────────────────────
+
+/** 接点 id 是否属于当前网表；越界 / 非整数 / 未分配都算“接点不存在”。 */
+export function isKnownTerminal(state, terminalId) {
+  if (!Number.isInteger(terminalId)) return false;
+  return terminalId >= 0 && terminalId < totalTerminalCount(state?.devices ?? []);
+}
+
+/** 接点 id → `位号.接点名`（导线清单与提示用）；找不到时退回 `#id`。 */
+export function terminalLabel(devices, terminalId) {
+  for (const device of devices ?? []) {
+    const terminals = terminalsFor(device.kind, device.aux);
+    const index = terminalId - device.terminal_base;
+    if (index >= 0 && index < terminals.length) {
+      return `${device.ref}.${terminals[index].name}`;
+    }
+  }
+  return `#${terminalId}`;
+}
+
+/**
+ * 接线校验（§5.2）：自连 / 重复 / 越界或未知接点一律拒绝，其余交内核。
+ * 纯函数，不读 state 以外的任何东西。
+ * @returns {{ok: true} | {ok: false, message: string}}
+ */
+export function validateWire(state, a, b) {
+  if (!isKnownTerminal(state, a) || !isKnownTerminal(state, b)) {
+    return { ok: false, message: "接点不存在" };
+  }
+  if (a === b) {
+    return { ok: false, message: "不能把接点接到自己" };
+  }
+  const duplicate = (state.wires ?? []).some(
+    (wire) => (wire.a === a && wire.b === b) || (wire.a === b && wire.b === a),
+  );
+  if (duplicate) {
+    return { ok: false, message: "已有此导线" };
+  }
+  return { ok: true };
+}
+
+// 拒绝不上屏、不求解：只清待接线状态，并在诊断栏留一条 warn（§5.2）。
+function rejectWire(state, message) {
+  return {
+    ...state,
+    mode: MODE.IDLE,
+    pendingTerminal: null,
+    notice: message,
+    noticeLevel: "warn",
+  };
+}
+
+function appendWire(state, a, b) {
+  const validation = validateWire(state, a, b);
+  if (!validation.ok) return rejectWire(state, validation.message);
+  const wires = [...(state.wires ?? []), { a, b }];
+  return commit(
+    { ...state, wires },
+    { notice: `已加线 ${terminalLabel(state.devices, a)} ↔ ${terminalLabel(state.devices, b)}` },
+  );
+}
+
+function pickTerminalEvent(state, event) {
+  const terminal = event.terminal ?? event.term ?? event.id;
+  if (!isKnownTerminal(state, terminal)) return rejectWire(state, "接点不存在");
+  return {
+    ...state,
+    mode: MODE.PICK_A,
+    pendingTerminal: terminal,
+    selectedWire: null,
+    notice: null,
+    noticeLevel: "info",
+  };
+}
+
+function completeWireEvent(state, event) {
+  const terminal = event.terminal ?? event.term ?? event.id;
+  const pending = state.pendingTerminal;
+  // 没有待接线的第二次点击没有语义：不制造状态。
+  if (pending === null || pending === undefined) return state;
+  return appendWire(state, pending, terminal);
+}
+
+function addWireEvent(state, event) {
+  const a = event.a ?? event.from;
+  const b = event.b ?? event.to;
+  return appendWire(state, a, b);
+}
+
+function removeWireEvent(state, event) {
+  const index = event.index ?? event.i;
+  const wires = state.wires ?? [];
+  if (!Number.isInteger(index) || index < 0 || index >= wires.length) return state;
+  const removed = wires[index];
+  const next = wires.filter((_, i) => i !== index);
+  return commit(
+    { ...state, wires: next },
+    {
+      notice: `已删除导线 ${terminalLabel(state.devices, removed.a)} ↔ ${terminalLabel(state.devices, removed.b)}`,
+    },
+  );
+}
+
+function selectWireEvent(state, event) {
+  const index = event.index ?? event.i;
+  const wires = state.wires ?? [];
+  if (!Number.isInteger(index) || index < 0 || index >= wires.length) {
+    return { ...state, selectedWire: null, selected: null };
+  }
+  return {
+    ...state,
+    selected: null,
+    selectedWire: index,
+    mode: MODE.IDLE,
+    pendingTerminal: null,
+  };
+}
+
+function clearWiresEvent(state) {
+  if ((state.wires ?? []).length === 0) return state;
+  return commit({ ...state, wires: [] }, { notice: "已清空全部导线" });
 }
 
 function buildSampleState(event) {
@@ -513,8 +641,14 @@ function resetEvent(state) {
  *   loadSample   { sample, devices?, wires?, strictReference? }   提交
  *   reset        —                                                提交（白画布清空）
  *   clear        —                                                提交（清空为白画布）
- *   cancel       —                                                非提交（取消拖动 / 待接线）
+ *   cancel       —                                                非提交（取消拖动 / 待接线 / 选中导线）
  *   setStrict    { value }                                        提交（宽松 / 严格切换）
+ *   pickTerminal { terminal }                                     非提交（接线第一个接点，进入 PICK_A）
+ *   completeWire { terminal }                                     提交（与 pendingTerminal 成线；拒绝规则见 §5.2）
+ *   addWire      { a, b }                                         提交（直接按接点 id 加线，拒绝规则同上）
+ *   removeWire   { index }                                        提交（删除导线）
+ *   selectWire   { index | null }                                 非提交（选中 / 取消选中导线）
+ *   clearWires   —                                                提交（清空全部导线）
  */
 export function reducer(state, event) {
   assertState(state);
@@ -537,6 +671,18 @@ export function reducer(state, event) {
       return setParamEvent(state, event);
     case "operate":
       return operateEvent(state, event);
+    case "pickTerminal":
+      return pickTerminalEvent(state, event);
+    case "completeWire":
+      return completeWireEvent(state, event);
+    case "addWire":
+      return addWireEvent(state, event);
+    case "removeWire":
+      return removeWireEvent(state, event);
+    case "selectWire":
+      return selectWireEvent(state, event);
+    case "clearWires":
+      return clearWiresEvent(state);
     case "loadSample":
       return loadSampleEvent(state, event);
     case "reset":
@@ -557,7 +703,15 @@ export function reducer(state, event) {
       };
     }
     case "cancel":
-      return { ...state, mode: MODE.IDLE, drag: null, pendingTerminal: null };
+      return {
+        ...state,
+        mode: MODE.IDLE,
+        drag: null,
+        pendingTerminal: null,
+        selectedWire: null,
+        notice: null,
+        noticeLevel: "info",
+      };
     case "setStrict": {
       const value = event.value === true;
       if (value === (state.strictReference === true)) return state;
