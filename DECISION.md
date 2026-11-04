@@ -3,7 +3,7 @@
 读者：AI / 负责人
 类型：台账
 权威：负责人已定口径的唯一清单
-状态：2026-11-03 建立；首批 11 条（原 P-01…P-11）＋ 第二批 6 条（原 P-12…P-17）＋ 第三批 5 条（原 P-18…P-21 ＋ 短路细化）＋ 第四批 3 条（P-22 处置 ＋ 演示页范围 ＋ 参考点三分类）＋ 第五批 2 条（仓库流程 PR 化 ＋ 分支保护让步）＋ 第六批 1 条（Web 端 JSON 门面）＋ 第七批 2 条（演示页交互契约 ＋ CI 必需检查复原）＋ 第八批 1 条（发布口径）
+状态：2026-11-03 建立；首批 11 条（原 P-01…P-11）＋ 第二批 6 条（原 P-12…P-17）＋ 第三批 5 条（原 P-18…P-21 ＋ 短路细化）＋ 第四批 3 条（P-22 处置 ＋ 演示页范围 ＋ 参考点三分类）＋ 第五批 2 条（仓库流程 PR 化 ＋ 分支保护让步）＋ 第六批 1 条（Web 端 JSON 门面）＋ 第七批 2 条（演示页交互契约 ＋ CI 必需检查复原）＋ 第八批 1 条（发布口径）＋ 第九批 10 条（M6 网页实验台口径 D-20261104-01…10）
 依赖：`TODO.md` §1（未拍板项在那边，拍板后转到这里）
 
 ## 0 写法
@@ -252,3 +252,53 @@
 - **触发方式两条**：`workflow_dispatch`（输版本号，`--target main` 建 tag）与 `push.tags`（本地打 tag 再推）。tag 已存在时自动退化为补传附件，可重复执行。
 - **tag 不受 `main` 分支保护约束**：保护只拦代码提交，不拦 tag；但每个 tag 指向的提交本身就是走过 PR 的。
 - 应对：`.github/workflows/release.yml`、`.agent/workflows/05-release.md`（重写，删掉从未存在的 `scripts/build.ps1` / `copy-unity.ps1` 引用）、`README.md` §发布、`AGENT.md` §4。
+
+### D-20261104-01 M6 新建独立 playground，不动已验收的 demo（负责人拍板）
+
+- **定了什么**：M6 的实验台落在**新目录** `bindings/web/playground/` 与**新文档** `docs/playground.md`；已验收的 `bindings/web/demo.html` / `demo.js` / `docs/demo.md` 一律不动，固定 C3 演示页保持原样。
+- **应对**：`docs/playground.md` §2 定义 playground 的文件清单与模块职责；实现分片白名单只含 `bindings/web/playground/**`、`scripts/**`、`.github/workflows/ci.yml`（M6.6）与契约文档；`demo.md` 继续作为固定 C3 演示页的唯一实现依据。
+
+### D-20261104-02 零依赖原生 ES modules ＋ 纯数据纯函数 reducer（负责人拍板）
+
+- **定了什么**：实验台是零依赖的**原生 ES modules 静态页**，无框架、无打包器、无 npm；沿用 `scripts/serve.mjs` 起服务。编辑状态用**纯数据 ＋ 纯函数 reducer**，DOM 只负责渲染与事件，因此 reducer 与几何函数可用 `node --test` 直接单测。
+- **应对**：`docs/playground.md` §1.4 / §2 规定模块边界（`state.js` 无 DOM、`canvas.js` 不做状态转换）；M6.2 / M6.3 / M6.5 的单测均为 `node --test`，不引入测试框架依赖。
+
+### D-20261104-03 器件图元几何沿用 demo.md §3.4 并扩到 15 类（负责人拍板）
+
+- **定了什么**：几何契约以 `docs/demo.md` §3.4 的相对偏移（`点 = 盒子左上角 + (u×w, v×h)`）为基础，**扩充**到 15 类及可变接点数后作为 M6 通用契约；每类 kind 给**默认框尺寸**；器件位置是**数据**（样例 layout / 编辑状态），不是契约。
+- **应对**：`docs/playground.md` §3 写全 15 类符号、默认框尺寸、接点几何表（含 `KM`/`KA` 第二辅助组用顶边的 M6 扩充与 `TB` 均分规则）；M6.1 的单测逐行核对几何表，不得「大概一致」。
+
+### D-20261104-04 样例只存 layout 与操作状态，网表与期望值运行时读 fixtures（负责人拍板）
+
+- **定了什么**：`bindings/web/playground/samples/C*.json` **只存** layout 与操作状态（`case` / `fixture` / `layout[]` / `initial` / `note`）；电路网表与期望值**运行时读 `fixtures/`**，不复制第二份数值。
+- **应对**：`docs/playground.md` §4 定义 sample schema 与加载顺序；`scripts/playground-check.mjs` 校验 sample ↔ fixture 一致性（`fixture` 存在、layout 覆盖全部 `ref`、不重不漏）；发现 fixture 期望值有误时**停下提问**，不许自行改 `fixtures/`。
+
+### D-20261104-05 C9 的 rpm 由人给，不建惯性模型（负责人拍板）
+
+- **定了什么**：C9 反接制动的 `rpm` 由人操作（滑块 / 数字框）直接给出，**不建**转速惯性 / 升降速模型；假转速模型留二期 issue #28。
+- **应对**：`docs/playground.md` §5.4 / §7 把 `rpm` 定为应用侧输入，参数表单不出现 `rpm`；M6.5 的验收是「滑块过吸合转速 `13-14` 闭合、降到释放转速以下断开」，不做时间过程断言。
+
+### D-20261104-06 默认宽松模式，样例可切严格，两种都显示诊断（负责人拍板）
+
+- **定了什么**：编辑中间态默认宽松模式（`strict_reference: false`），保证「画一半、删光导线」也**必须出数**；样例可切换严格模式；两种模式都必须显示诊断。
+- **应对**：`docs/playground.md` §4.2 / §5.3 / §6.4；宽松模式缺 `PE` 时显示 `W_IMPLICIT_REFERENCE`，严格模式缺 `PE` 时显示 `E_NO_REFERENCE`；编辑态出现 error 视为实现缺陷。
+
+### D-20261104-07 可编辑参数子集与只读常量（负责人拍板）
+
+- **定了什么**：可编辑参数**只限**：`POWER` 电压 / 频率、`QS` 极数、`KM`/`KA` 辅助组数、`SB`/`SQ` 类型、`FR` 整定电流、`KT` 延时、`R` 阻值、`TB` 位数；线圈阻抗、动作阈值等常量**只读**。
+- **应对**：`docs/playground.md` §7 给可编辑字段表（控件 / 范围 / 落位）与只读常量清单（来源指向 `domain-model.md` §4、`solver.md` §5）；改变接点数的参数按 `docs/playground.md` §2.4 重排 id 并重写导线。
+
+### D-20261104-08 正确性判据三段化，脚本与页面共用一份比对库（负责人拍板）
+
+- **定了什么**：正确性判据分**结构 / 数值 / 一致**三段；新增 `scripts/playground-check.mjs` 与页面内自检页，两者**共用同一份比对库**（容差与断言逻辑的唯一实现），`compare.mjs` 行为不变。
+- **应对**：`docs/playground.md` §8 定义三段判据、28 个 fixture case 复算与 20 条典型误接清单；M6.6 抽出 `scripts/lib/fixture-compare.mjs` 并在 `ci.yml` 的 `wasm` job 末尾加一步 `node scripts/playground-check.mjs`，**不新增必需检查名称**。
+
+### D-20261104-09 部署：serve.mjs 可选 --host，Tailscale 裸端口，不用 funnel（负责人拍板）
+
+- **定了什么**：`scripts/serve.mjs` 增加可选 `--host <addr>`（**默认行为不变**）；tailnet 内裸端口访问，**不用 `tailscale funnel`**，**不暴露 3080 / 3000**。
+- **应对**：`docs/playground.md` §9 写启动命令、两种访问地址形态、常驻命令与安全边界；M6.7 实现 `--host` 并在验收记录登记 tailnet 另一台设备的实测结果。
+
+### D-20261104-10 M6 边界：不碰内核 / fixtures / demo，只算电气量（负责人拍板）
+
+- **定了什么**：M6 不碰 `crates/core` / `cabi` / `wasm` 既有逻辑、不改 `fixtures/` 期望值、不改 `demo.*`；页面必须标注「本期只算电气量」（不输出转速 / 转矩 / 制动时间 / 启动曲线）。
+- **应对**：`docs/playground.md` §1.3 写硬边界，§3 / §6 只做图元与显示；C7/C8/C9 的相关限制引用 `verification.md` §5；实现层诊断与数值全部来自内核，应用层零电气规则（`AGENT.md` §2「内核唯一」）。
