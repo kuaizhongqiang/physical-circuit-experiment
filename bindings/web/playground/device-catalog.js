@@ -644,6 +644,13 @@ export function defaultFlags(kind) {
   return entryFor(kind).stateSource === "application" ? 1 : 0;
 }
 
+/** 可人工操作的 kind；唯一清单见 docs/playground.md §5.4（QS / SB / SQ）。 */
+export const OPERABLE_KINDS = Object.freeze(["QS", "SB", "SQ"]);
+
+export function isOperable(kind) {
+  return OPERABLE_KINDS.includes(kind);
+}
+
 /** 新放置器件在静止状态下的 state_bits。 */
 export function defaultStateBits(kind, aux = defaultAux(kind)) {
   if (kind === "SB" || kind === "SQ") {

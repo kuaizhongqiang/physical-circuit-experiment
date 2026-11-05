@@ -3,7 +3,7 @@
 读者：AI / 负责人
 类型：台账
 权威：已提交变更的唯一清单
-状态：2026-11-05 更新；已登记 `R-01`…`R-16`
+状态：2026-11-05 更新；已登记 `R-01`…`R-17`
 依赖：`DECISION.md`（口径来源）
 
 ## 0 写法
@@ -34,3 +34,4 @@
 | `R-14` | `98d553e` | `feat(web): M6.5 参数编辑与操作面板（属性表单 / 器件操作 / 诊断分级 / 接点表） (#43) (#52)` | `bindings/web/playground/index.html` `canvas.js` `device-catalog.js` `diag-text.js` `state.js` `test/` `evidence/` `docs/playground.md` `TODO.md` `RECORD.md` |
 | `R-15` | `373d953` | `test(web): M6.6 自检脚本、页面自检页与 CI（10 样例 × 28 case ＋ 20 条误接） (#44) (#53)` | `scripts/playground-check.mjs` `scripts/lib/fixture-compare.mjs` `scripts/compare.mjs` `.github/workflows/ci.yml` `bindings/web/playground/selftest.html` `evidence/` `TODO.md` `RECORD.md` |
 | `R-16` | `2cd55e7` | `feat(web): M6.7 Tailscale 部署与浏览器验收（--host、运行手册、本机记录） (#54)` | `scripts/serve.mjs` `bindings/web/playground/evidence/`(5) `docs/playground.md` §9 §10.3 `TODO.md` `RECORD.md` |
+| `R-17` | `39b6157` | `docs(repo): M6 收口（README、索引、G6 回写与三台账齐账） (#46) (#63)` | `AGENT.md` `README.md` `bindings/web/README.md` `docs/README.md` `docs/playground.md` §10 `docs/roadmap.md` `TODO.md` `RECORD.md` |

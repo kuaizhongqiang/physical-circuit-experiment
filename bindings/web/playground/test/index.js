@@ -10,3 +10,4 @@ import "./solve.test.js";
 import "./samples.test.js";
 import "./diag-text.test.js";
 import "./ks-map.test.js";
+import "./contact-state.test.js";
