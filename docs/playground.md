@@ -3,7 +3,7 @@
 读者：AI / 负责人
 类型：设计
 权威：M6 网页实验台的功能、结构、器件图元、样例、交互、参数、判据、部署与验收的唯一事实源
-状态：2026-11-04 首版（契约先行；实现按 M6.0…M6.8 分片，口径见 `DECISION.md` D-20261104-01…10）
+状态：2026-11-04 首版；2026-11-05 补 §4.4 / §4.5（M6.4 样例加载与确定性排版）。实现按 M6.0…M6.8 分片，口径见 `DECISION.md` D-20261104-01…10
 依赖：`demo.md` §3.4 / §4 / §6 / §8（几何、图元、数值格式、诊断文案）、`domain-model.md` §2 §4（接点表、参数）、`solver.md` §5（数值常量）、`verification.md` §2 §3 §4（容差与断言）、`api.md` §5 §7（错误码、JSON 门面）、`integration.md` §2 §4（应用侧时钟、Web 侧）
 
 ## 1 目标与两个入口
@@ -210,14 +210,15 @@ DOM 事件 ──► reducer(state, event) ──► next state ──► solve(
 
 ### 4.2 运行时读取规则
 
-1. 读 `samples/C*.json`（layout ＋ initial）。
-2. 读 `fixture` 指向的 `fixtures/C*.json`：`devices`（含 `state_bits` / `flags` / `elapsed_ms` / `rpm` 初始值）、`wires`、`config`、`strict_reference`。
-3. 套 `initial.case` 对应的 `set` / `add_wires` / `drop_wires`，再套 `initial.rpm` / `initial.elapsed_ms`，生成初始 state。
-4. 套 layout，生成渲染坐标。
+1. 读 `samples/C*.json`（layout ＋ initial）；文件缺失或读取失败时**停在入口**，不改变当前画布。
+2. 读 `fixture` 指向的 `fixtures/C*.json`：`devices`（含 `id` / `terminal_base` / `aux` / `params` / `state_bits` / `flags` / `elapsed_ms` / `rpm` 原值）、`wires`、`config`、`strict_reference`。**网表与期望值一律以 fixture 为准**，sample 里不得出现第二份。
+3. 套 `initial.case`（缺省 `0`）对应的 `set` / `add_wires` / `drop_wires` / `add_devices`，再套 `initial.rpm` / `initial.elapsed_ms`，生成初始操作状态。
+4. 套 layout：每台器件只补 `x` / `y` / `w` / `h`；**不改** `id` / `terminal_base` / `aux` / `params` / `state_bits` / `flags`。
 5. 调用 `solve`，渲染。
 
-- **样例模式默认宽松**（`strict_reference = false`，口径 06）：编辑中间态必须出数；样例可切严格（按 fixture 的 `strict_reference` 或手动开关），两种都显示诊断。
+- **样例模式默认宽松**（`strict_reference = false`，口径 06）：编辑中间态必须出数；fixture 的 `strict_reference` 只记录，严格模式由 M6.5 的手动开关切换，两种都显示诊断。
 - 样例切换 / 重置等价于重新执行 1–5；切换前不弹确认，重置也不可撤销（撤销功能本期不做）。
+- `initial.rpm` 只能指向 `KS`，`initial.elapsed_ms` 只能指向 `KT` / `FR`；越界或未知 `ref` 按 §4.4 报错。
 
 ### 4.3 C1…C10 与 fixtures 对照（来自现有 fixture，只读）
 
@@ -234,6 +235,33 @@ DOM 事件 ──► reducer(state, event) ──► next state ──► solve(
 | C9 | `fixtures/C9.json` | 6 | 20 | 3 |
 | C10 | `fixtures/C10.json` | 7 | 22 | 2 |
 | **合计** | 10 份 | — | — | **28** |
+
+### 4.4 加载失败提示（页面与脚本同一套）
+
+样例加载的纯函数在 `bindings/web/playground/samples.js`；页面把 `SampleLoadError.message` 原样写进顶部红条，`scripts/playground-check.mjs` 逐条打印并以非零码退出。
+
+| 情况 | 错误码 | 提示（示例） |
+|---|---|---|
+| sample 文件缺失 / 读失败 | `SAMPLE_MISSING` | `样例文件缺失或读取失败：samples/C1.json（HTTP 404）` |
+| `fixture` 指向的文件缺失 / 读失败 | `FIXTURE_MISSING` | `fixture 缺失或读取失败：fixtures/C1.json（HTTP 404）` |
+| layout 漏了 fixture 的器件 | `LAYOUT_MISSING_REF` | `layout 缺少 ref：PE1` |
+| layout 出现 fixture 没有的器件 | `LAYOUT_UNKNOWN_REF` | `layout 含未知 ref：P2` |
+| layout 同一 ref 出现两次 | `LAYOUT_DUPLICATE_REF` | `layout 重复 ref：P1` |
+| 坐标非数 / 宽高 ≤ 0 / 出画布 | `LAYOUT_INVALID`、`LAYOUT_OUT_OF_CANVAS` | `layout.P1 超出 1600×1000：x=…` |
+| 盒子重叠 | `LAYOUT_OVERLAP` | `layout 盒子重叠：P1 与 QS1` |
+| sample 里复制了网表 / 期望值 | `SAMPLE_FIELD_UNKNOWN` | `含不允许的字段 devices（只允许 case / fixture / layout / initial / note）` |
+| `initial.case` 越界 / `rpm` 给错器件 | `SAMPLE_INITIAL_CASE_RANGE`、`SAMPLE_INITIAL_INVALID` | 见 `samples.js` |
+
+### 4.5 layout 确定性排布规则
+
+10 份 layout 由同一条**确定性两带规则**生成后写入 `samples/C*.json`（不是手调像素，也不在运行时重新排版）：
+
+1. 画布 `1600 × 1000`；器件盒 `w` / `h` 取 §3.2 的默认框尺寸。
+2. 分两带：主回路带 = `POWER` / `QS` / `FU` / `FR` / `KM` / `M` / `R`；控制带 = `SB` / `SQ` / `KA` / `KT` / `KS` / `EL` / `TB` / `PE`。
+3. 带内保持 fixture `devices[]` 的原顺序；主回路带 `y = 60`，控制带 `y = 520`；同一带内盒间距 `40 px`。
+4. 每带水平居中：`x0 = round((1600 - (Σw + 40 × (n - 1))) / 2)`，逐台向右累加。
+5. 该规则保证盒子不重叠且全部落在画布内；`scripts/playground-check.mjs` 逐份复核「覆盖完整 / 不重 / 未知 / 越界 / 重叠」。fixture 器件清单变化时按本规则重生成，不手改 fixture。
+
 
 ## 5 交互状态机
 

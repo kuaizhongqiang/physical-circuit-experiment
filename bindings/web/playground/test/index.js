@@ -7,3 +7,4 @@ import "./geometry.test.js";
 import "./model.test.js";
 import "./state.test.js";
 import "./solve.test.js";
+import "./samples.test.js";
