@@ -11,3 +11,4 @@ import "./samples.test.js";
 import "./diag-text.test.js";
 import "./ks-map.test.js";
 import "./contact-state.test.js";
+import "./export.test.js";
