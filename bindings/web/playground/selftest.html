@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<title>实验台自检（10 样例 × fixture case）</title>
+<style>
+  :root {
+    --ink: #263238;
+    --muted: #607d8b;
+    --line: #cfd8dc;
+    --panel: #ffffff;
+    --bg: #eef2f4;
+    --accent: #1e88e5;
+    --danger: #c62828;
+    --ok: #2e7d32;
+    --ok-bg: #edf7ed;
+    --bad-bg: #fff1f0;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--bg);
+    color: var(--ink);
+    font: 13px/1.5 system-ui, -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+  }
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    padding: 14px 20px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--line);
+  }
+  header h1 { margin: 0; font-size: 18px; letter-spacing: .2px; }
+  header h1 span { color: var(--muted); font-size: 12px; font-weight: 500; margin-left: 8px; }
+  header p { margin: 3px 0 0; color: var(--muted); font-size: 11px; }
+  .actions { display: flex; align-items: center; gap: 12px; flex: none; }
+  .summary {
+    padding: 7px 12px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: #fafbfc;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .summary.pending { color: var(--muted); font-weight: 500; }
+  .summary.ok { color: var(--ok); border-color: #a5d6a7; background: var(--ok-bg); }
+  .summary.bad { color: var(--danger); border-color: #ef9a9a; background: var(--bad-bg); }
+  button, .actions a {
+    font: inherit;
+    padding: 6px 11px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: #fff;
+    color: var(--accent);
+    cursor: pointer;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+  button:hover, .actions a:hover { border-color: var(--accent); }
+  button:disabled { color: var(--muted); cursor: wait; }
+  main { padding: 16px 20px 28px; }
+  .notice {
+    margin: 0 0 12px;
+    padding: 9px 12px;
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--accent);
+    border-radius: 6px;
+    background: #fff;
+    color: #37474f;
+  }
+  .notice.ok { border-left-color: var(--ok); background: var(--ok-bg); color: #1b5e20; }
+  .notice.bad { border-left-color: var(--danger); background: var(--bad-bg); color: #b71c1c; }
+  .notice code { background: #eceff1; padding: 0 4px; border-radius: 3px; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    overflow: hidden;
+    font-variant-numeric: tabular-nums;
+  }
+  thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    padding: 9px 10px;
+    background: #eceff1;
+    border-bottom: 1px solid var(--line);
+    text-align: left;
+    font-size: 11px;
+    letter-spacing: .3px;
+    color: #455a64;
+  }
+  tbody td { padding: 7px 10px; border-top: 1px solid #eceff1; vertical-align: top; }
+  tbody tr.group td {
+    background: #f5f7f8;
+    font-weight: 600;
+    color: #37474f;
+    padding: 6px 10px;
+  }
+  tbody tr.group .group-stat { color: var(--muted); font-weight: 500; margin-left: 8px; }
+  tbody tr.ok td:first-child { border-left: 3px solid var(--ok); }
+  tbody tr.bad td:first-child { border-left: 3px solid var(--danger); }
+  tbody tr.bad { background: var(--bad-bg); }
+  .verdict { font-weight: 600; white-space: nowrap; }
+  .verdict.ok { color: var(--ok); }
+  .verdict.bad { color: var(--danger); }
+  .detail { color: #455a64; }
+  .detail .line + .line { margin-top: 2px; }
+  .detail .line.bad { color: var(--danger); }
+  .detail .mono { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 11px; }
+  td.mono { font-family: ui-monospace, SFMono-Regular, Consolas, monospace;font-size: 11px; color: #455a64; }
+  footer { padding: 0 20px 24px; color: var(--muted); font-size: 11px; }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>实验台自检 <span>10 样例 × fixture case</span></h1>
+    <p>浏览器内直接调用 wasm；判据与 <code>node scripts/playground-check.mjs</code> 同源（<code>scripts/lib/fixture-compare.mjs</code>），不允许「脚本绿、页面红」。</p>
+  </div>
+  <div class="actions">
+    <span id="summary" class="summary pending">加载中…</span>
+    <button id="rerun" type="button" disabled>重新自检</button>
+    <a href="./index.html">返回实验台</a>
+  </div>
+</header>
+<main>
+  <div id="notice" class="notice">正在加载 wasm 与 fixtures…</div>
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 72px">样例</th>
+        <th style="width: 280px">fixture case</th>
+        <th style="width: 84px">结果</th>
+        <th style="width: 86px">code</th>
+        <th>详情</th>
+      </tr>
+    </thead>
+    <tbody id="rows"></tbody>
+  </table>
+</main>
+<footer>
+  判据：docs/playground.md §8.2 / §8.4；容差：docs/verification.md §2（电流 / 电压相对 1%，小于 1 mA 按 0.01 mA 绝对判）。
+  期望值全部来自 <code>fixtures/</code>，页面不复制第二份数值。
+</footer>
+<script type="module">
+import { loadPcx } from "../pcx.js";
+import { SAMPLE_NAMES } from "./samples.js";
+import {
+  buildCaseInput,
+  buildRefs,
+  caseEntries,
+  codeName,
+  compareCase,
+} from "../../../scripts/lib/fixture-compare.mjs";
+
+const WASM_URL = "../pkg/pcx_circuit.wasm";
+const EXPECTED_TOTAL = 28;
+
+const summary = document.getElementById("summary");
+const notice = document.getElementById("notice");
+const rows = document.getElementById("rows");
+const rerun = document.getElementById("rerun");
+
+let pcx = null;
+let running = false;
+
+async function readJson(url) {
+  const response = await fetch(url, { cache: "no-store" });
+  if (!response.ok) throw new Error(`${url}（HTTP ${response.status}）`);
+  return response.json();
+}
+
+function el(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+
+function addGroup(sample) {
+  const tr = document.createElement("tr");
+  tr.className = "group";
+  const td = document.createElement("td");
+  td.colSpan = 5;
+  td.append(el("span", "", sample));
+  const stat = el("span", "group-stat", "0/0 case");
+  td.append(stat);
+  tr.append(td);
+  rows.append(tr);
+  return stat;
+}
+
+function failureLines(failure) {
+  switch (failure.kind) {
+    case "code":
+      return `错误码：期望 ${failure.expected}（${codeName(failure.expected)}），`
+        + `实际 ${failure.actual}（${codeName(failure.actual)}）`;
+    case "ref-missing":
+      return `fixture 里没有 ref ${failure.ref}`;
+    case "terminal-missing":
+      return `结果里没有接点 ${failure.terminalId}（期望 ${failure.key}）`;
+    case "terminal-field":
+      return `期望 ${failure.ref}:${failure.index}.${failure.field} = ${failure.expected}，`
+        + `实际 ${failure.actual}`;
+    case "device-missing":
+      return `结果里没有器件 ${failure.ref}（id ${failure.deviceId}）`;
+    case "device-field":
+      return `期望 ${failure.ref}.${failure.field} = ${failure.expected}，`
+        + `实际 ${failure.actual}`;
+    default:
+      return JSON.stringify(failure);
+  }
+}
+
+function addCaseRow(sample, entry, output, result) {
+  const tr = document.createElement("tr");
+  tr.className = result.failures.length === 0 ? "ok" : "bad";
+
+  tr.append(el("td", "", sample));
+  tr.append(el("td", "", entry.name || "默认"));
+
+  const verdict = el("td", `verdict ${result.failures.length === 0 ? "ok" : "bad"}`,
+    result.failures.length === 0 ? "✓ 通过" : "✗ 失败");
+  tr.append(verdict);
+
+  const code = el("td", "mono", `${output.code} ${codeName(output.code)}`);
+  tr.append(code);
+
+  const detail = el("td", "detail");
+  if (result.failures.length === 0) {
+    const text = result.want === 0
+      ? `断言 ${result.passes.length} 个数值字段，全部在容差内。`
+      : `错误 case：仅断言 code ${result.want}（${codeName(result.want)}）。`;
+    detail.append(el("div", "line", text));
+  } else {
+    for (const failure of result.failures) {
+      detail.append(el("div", "line bad mono", failureLines(failure)));
+    }
+  }
+  tr.append(detail);
+  rows.append(tr);
+}
+
+function addErrorRow(sample, message) {
+  const tr = document.createElement("tr");
+  tr.className = "bad";
+  tr.append(el("td", "", sample));
+  tr.append(el("td", "", "加载 / 求解失败"));
+  tr.append(el("td", "verdict bad", "✗ 失败"));
+  tr.append(el("td", "mono", "—"));
+  tr.append(el("td", "detail", message));
+  rows.append(tr);
+}
+
+function finish(passed, total, failures) {
+  summary.className = `summary ${failures === 0 && total === EXPECTED_TOTAL ? "ok" : "bad"}`;
+  summary.textContent = `通过 ${passed} / ${total}`;
+  if (failures === 0 && total === EXPECTED_TOTAL) {
+    notice.className = "notice ok";
+    notice.textContent = `全部通过：10 样例 / ${total} 个 fixture case 与期望值一致（判据与 playground-check.mjs 同源）。`;
+  } else {
+    notice.className = "notice bad";
+    notice.textContent = `未全通过：${passed} / ${total}，失败 ${failures} 处`
+      + (total !== EXPECTED_TOTAL ? `；case 总数 ${total} ≠ ${EXPECTED_TOTAL}。` : "。");
+  }
+  window.__selftest = { done: true, passed, total, failures };
+  document.body.dataset.selftest = "done";
+}
+
+async function run() {
+  if (running) return;
+  running = true;
+  rerun.disabled = true;
+  rows.replaceChildren();
+  summary.className = "summary pending";
+  summary.textContent = "自检中…";
+  notice.className = "notice";
+  notice.textContent = pcx ? "正在复算 10 样例 × 28 个 fixture case…" : "正在加载 wasm…";
+  window.__selftest = { done: false };
+
+  let passed = 0;
+  let total = 0;
+  let failures = 0;
+
+  try {
+    if (!pcx) pcx = await loadPcx(WASM_URL);
+    notice.textContent = "正在复算 10 样例 × 28 个 fixture case…";
+
+    for (const name of SAMPLE_NAMES) {
+      let sampleTotal = 0;
+      let samplePassed = 0;
+      const groupStat = addGroup(name);
+      try {
+        const sample = await readJson(`./samples/${name}.json`);
+        const fixture = await readJson(`../../../${sample.fixture}`);
+        const refs = buildRefs(fixture);
+        const entries = caseEntries(fixture);
+        for (const entry of entries) {
+          sampleTotal += 1;
+          total += 1;
+          const output = pcx.solve(buildCaseInput(fixture, entry));
+          const result = compareCase(fixture, entry, output, refs);
+          if (result.failures.length === 0) {
+            samplePassed += 1;
+            passed += 1;
+          } else {
+            failures += result.failures.length;
+          }
+          addCaseRow(name, entry, output, result);
+        }
+      } catch (error) {
+        failures += 1;
+        addErrorRow(name, error?.message ?? String(error));
+      }
+      groupStat.textContent = `${samplePassed}/${sampleTotal} case`;
+    }
+
+    if (total !== EXPECTED_TOTAL) {
+      failures += 1;
+      addErrorRow("总数", `fixture case 总数 ${total} ≠ 契约 ${EXPECTED_TOTAL}（docs/playground.md §4.3）`);
+    }
+  } catch (error) {
+    failures += 1;
+    addErrorRow("wasm", `加载 ${WASM_URL} 失败：${error?.message ?? error}`);
+  }
+
+  finish(passed, total, failures);
+  running = false;
+  rerun.disabled = false;
+}
+
+rerun.addEventListener("click", run);
+run();
+</script>
+</body>
+</html>

@@ -95,3 +95,6 @@ jobs:
       - name: 双端比对（wasm 侧逐条核对 fixtures）
         if: steps.ws.outputs.present == '1'
         run: node scripts/compare.mjs
+      - name: playground 自检（10 样例 × 28 case ＋ 20 条误接）
+        if: steps.ws.outputs.present == '1'
+        run: node scripts/playground-check.mjs
