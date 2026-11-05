@@ -7,7 +7,8 @@
 //   docs/playground.md §6.1  器件框 / 位号 / 器件名 / 接点圆点 / 接点编号 / 接点电压
 //   docs/playground.md §6.1  导线正交走线、通电红 / 断电灰、预览橙色虚线、框内裁剪
 //   docs/demo.md §4           配色与字号沿用；白底、2 秒光晕按该节“实现备注”
-//   docs/demo.md §8           诊断码 → 中文文案（本片只有一条最小映射，M6.3 再抽 diag-text.js）
+//   docs/playground.md §5.4  SB / SQ 按下动作、抬起复位；QS 点击切换（把事件交给 reducer）
+//   docs/demo.md §8          诊断码 → 中文文案在 diag-text.js（本文件不复制第二份）
 //
 // 本文件不做状态转换：接线 / 删线 / 选中都通过 onEvent 交给 state.js 的 reducer。
 
@@ -44,32 +45,6 @@ const COLOR = Object.freeze({
   grid: "#eceff1",
   hint: "#90a4ae",
 });
-
-const DIAG_LEVEL_TEXT = Object.freeze({ 0: "info", 1: "warn", 2: "error" });
-
-// 沿用 docs/demo.md §8 的同一份诊断码枚举；playground 不新增错误码 / 诊断码。
-const DIAG_TEXT = Object.freeze({
-  0: "正常",
-  20: "缺少接地参考点：请把 P1.N 接到 PE1",
-  21: "接地参考点重复",
-  30: "矩阵奇异：多半是某处该接的线没接",
-  31: "开关状态振荡：自锁回路无法稳定",
-  40: "短路：相与相之间被导线或闭合触点直接连通",
-  50: "缓冲不足",
-  100: "过流告警：某支路电流超过 50 A",
-  101: "该通的支路没有电流：检查接点是否连通",
-  102: "电路尚未接地，已临时以 P1.N 作参考",
-  103: "有若干接点尚未接入回路（显示 0）",
-});
-
-/** 诊断码 → 中文；表外码按 docs/playground.md §6.4 显示“未知诊断码 N”，不静默吞掉。 */
-export function diagText(code) {
-  return DIAG_TEXT[code] ?? `未知诊断码 ${code}`;
-}
-
-export function diagLevelText(level) {
-  return DIAG_LEVEL_TEXT[level] ?? "info";
-}
 
 const WIRE_FLASH_MS = 2000;
 
@@ -137,6 +112,8 @@ export function createCanvasView(canvas, handlers = {}) {
   let state = null;
   let dpr = 1;
   let drag = null;
+  // 当前被按住的瞬动器件（SB / SQ）；抬起、失焦、拖动都复位（§5.4）。
+  let pressedRef = null;
   let cursor = { x: -1, y: -1 };
   let hoverWire = -1;
   let layout = { devices: [], terminals: [], boxes: [] };
@@ -223,7 +200,20 @@ export function createCanvasView(canvas, handlers = {}) {
       canvas.style.cursor = "pointer";
       return;
     }
-    canvas.style.cursor = hitDevice(point) ? "grab" : "default";
+    const device = hitDevice(point);
+    if (device && ["SB", "SQ", "QS"].includes(device.kind)) {
+      canvas.style.cursor = "pointer";
+      return;
+    }
+    canvas.style.cursor = device ? "grab" : "default";
+  }
+
+  /** 松开当前按住的瞬动器件；没有按住时为幂等空操作。 */
+  function releasePressed() {
+    if (!pressedRef) return;
+    const ref = pressedRef;
+    pressedRef = null;
+    emit({ type: "operate", ref, action: "release" });
   }
 
   function onPointerDown(event) {
@@ -260,8 +250,18 @@ export function createCanvasView(canvas, handlers = {}) {
       emit({ type: "cancel" });
     }
     emit({ type: "select", ref: device.ref });
+
+    // SB / SQ 在鼠标按下时动作（常开闭合、常闭断开），抬起复位（§5.4）。
+    // 按下后若开始拖动，先复位再拖，避免“一边按住一边移动”的歧义。
+    if (device.kind === "SB" || device.kind === "SQ") {
+      releasePressed();
+      pressedRef = device.ref;
+      emit({ type: "operate", ref: device.ref, action: "press" });
+    }
+
     drag = {
       ref: device.ref,
+      kind: device.kind,
       offsetX: point.x - device.x,
       offsetY: point.y - device.y,
       start: point,
@@ -289,6 +289,7 @@ export function createCanvasView(canvas, handlers = {}) {
       if (moved) drag.moved = true;
       drag.last = target;
       if (drag.moved) {
+        releasePressed();
         emit({ type: "movePreview", ref: drag.ref, x: target.x, y: target.y });
       }
       return;
@@ -310,12 +311,16 @@ export function createCanvasView(canvas, handlers = {}) {
     drag = null;
     canvas.style.cursor = "default";
     if (event?.pointerId !== undefined) canvas.releasePointerCapture?.(event.pointerId);
+    releasePressed();
     if (cancelled) {
       emit({ type: "cancel" });
       return;
     }
     if (finished.moved) {
       emit({ type: "moveCommit", ref: finished.ref, x: finished.last.x, y: finished.last.y });
+    } else if (finished.kind === "QS") {
+      // 保持型：没拖动的一次点击 = 通断翻转（§5.4）。
+      emit({ type: "operate", ref: finished.ref, action: "toggle" });
     }
   }
 
@@ -330,6 +335,11 @@ export function createCanvasView(canvas, handlers = {}) {
       paint();
     }
     canvas.style.cursor = "default";
+  });
+  // 窗口失焦也要复位，否则按钮会“卡在按下状态”（§5.4）；拖动中的预览一并取消。
+  window.addEventListener("blur", () => {
+    releasePressed();
+    if (drag) finishDrag(null, true);
   });
 
   // ── 绘制 ──────────────────────────────────────────────────────────────────

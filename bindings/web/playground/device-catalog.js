@@ -353,6 +353,65 @@ const PARAMS = Object.freeze({
   PE: Object.freeze([]),
 });
 
+// ── 只读常量（docs/playground.md §7.2） ─────────────────────────────────────
+// 只描述「哪个 params 下标 / 叫什么 / 单位 / 来源」；值一律从当前器件 params 读取，
+// 不在本文件或页面另存第二份数值。
+const RO = (key, label, index, unit, source) =>
+  Object.freeze({ key, label, index, unit, source });
+
+const READONLY = Object.freeze({
+  POWER: Object.freeze([
+    RO("r_src", "电源内阻", 2, "Ω", "domain-model.md §4"),
+    RO("phase_seq", "相序", 3, "", "api.md §2.4"),
+  ]),
+  QS: Object.freeze([RO("r_contact", "接触电阻", 0, "Ω", "domain-model.md §4")]),
+  FU: Object.freeze([RO("r_contact", "接触电阻", 0, "Ω", "domain-model.md §4")]),
+  KM: Object.freeze([
+    RO("coil_r", "线圈电阻", 0, "Ω", "domain-model.md §4"),
+    RO("coil_x", "线圈电抗", 1, "Ω", "domain-model.md §4"),
+    RO("pick_current", "吸合电流", 2, "A", "domain-model.md §4"),
+    RO("drop_current", "释放电流", 3, "A", "domain-model.md §4"),
+    RO("r_contact", "接触电阻", 4, "Ω", "domain-model.md §4"),
+  ]),
+  KA: Object.freeze([
+    RO("coil_r", "线圈电阻", 0, "Ω", "domain-model.md §4"),
+    RO("coil_x", "线圈电抗", 1, "Ω", "domain-model.md §4"),
+    RO("pick_current", "吸合电流", 2, "A", "domain-model.md §4"),
+    RO("drop_current", "释放电流", 3, "A", "domain-model.md §4"),
+    RO("r_contact", "接触电阻", 4, "Ω", "domain-model.md §4"),
+  ]),
+  KT: Object.freeze([
+    RO("coil_r", "线圈电阻", 0, "Ω", "domain-model.md §4"),
+    RO("coil_x", "线圈电抗", 1, "Ω", "domain-model.md §4"),
+    RO("pick_current", "吸合电流", 2, "A", "domain-model.md §4"),
+    RO("drop_current", "释放电流", 3, "A", "domain-model.md §4"),
+    RO("r_contact", "接触电阻", 4, "Ω", "domain-model.md §4"),
+  ]),
+  KS: Object.freeze([
+    RO("n_pick", "吸合转速", 0, "rpm", "domain-model.md §4"),
+    RO("n_drop", "释放转速", 1, "rpm", "domain-model.md §4"),
+    RO("r_contact", "接触电阻", 2, "Ω", "domain-model.md §4"),
+  ]),
+  FR: Object.freeze([
+    RO("r_thermal", "热元件电阻", 0, "Ω", "domain-model.md §4"),
+    RO("delay_ms", "动作延时", 2, "ms", "domain-model.md §4"),
+    RO("r_contact", "接触电阻", 3, "Ω", "domain-model.md §4"),
+  ]),
+  SB: Object.freeze([RO("r_contact", "接触电阻", 0, "Ω", "domain-model.md §4")]),
+  SQ: Object.freeze([RO("r_contact", "接触电阻", 0, "Ω", "domain-model.md §4")]),
+  M: Object.freeze([
+    RO("r_phase", "每相电阻", 0, "Ω", "domain-model.md §4"),
+    RO("x_phase", "每相电抗", 1, "Ω", "domain-model.md §4"),
+  ]),
+  R: Object.freeze([]),
+  EL: Object.freeze([
+    RO("rated_voltage", "额定电压", 0, "V", "domain-model.md §4"),
+    RO("power", "额定功率", 1, "W", "domain-model.md §4"),
+  ]),
+  TB: Object.freeze([]),
+  PE: Object.freeze([]),
+});
+
 // ── 新放置器件的缺省参数（docs/domain-model.md §4 / fixtures/C3.json） ──────
 const DEFAULT_PARAMS = Object.freeze({
   POWER: Object.freeze([380, 50, 0.001, 1, 0, 0, 0, 0]),
@@ -517,6 +576,7 @@ function makeEntry(kind) {
     terminals: (aux) => def.terminals(aux).map((terminal, index) => ({ index, ...terminal })),
     stateBits: (aux) => def.stateBits(aux),
     params: PARAMS[kind],
+    readonly: READONLY[kind],
     defaultParams: DEFAULT_PARAMS[kind],
   });
 }
@@ -567,6 +627,11 @@ export function defaultBox(kind, aux = defaultAux(kind)) {
 /** 可编辑参数定义（docs/playground.md §7.1）；无参数的 kind 返回空数组。 */
 export function paramsFor(kind) {
   return entryFor(kind).params;
+}
+
+/** 只读常量定义（docs/playground.md §7.2）；值从器件 params 读取，此处只给下标与来源。 */
+export function readonlyFor(kind) {
+  return entryFor(kind).readonly;
 }
 
 /** 新放置器件的 params[8] 缺省值（返回副本，调用方可安全修改）。 */

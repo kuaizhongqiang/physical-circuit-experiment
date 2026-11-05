@@ -4,7 +4,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { defaultBox, terminalCount, terminalsFor } from "../device-catalog.js";
+import { defaultBox, paramsFor, terminalCount, terminalsFor } from "../device-catalog.js";
 import {
   CANVAS,
   MODE,
@@ -15,6 +15,7 @@ import {
   selectedDevice,
   terminalLabel,
   totalTerminalCount,
+  validateParam,
 } from "../state.js";
 
 const place = (state, kind, extra = {}) => reducer(state, { type: "place", kind, ...extra });
@@ -622,5 +623,144 @@ test("reducer 对 addWire / removeWire / clearWires 也不改入参", () => {
   reducer(frozen, { type: "removeWire", index: 0 });
   reducer(frozen, { type: "clearWires" });
 
+  assert.deepEqual(JSON.parse(JSON.stringify(frozen)), snapshot);
+});
+
+
+// ── M6.5：表单校验 / KS 转速 / 应用侧时钟 ───────────────────────────────────
+
+test("validateParam 覆盖 §7.1 全部可编辑字段的范围与类型", () => {
+  const def = (kind, key) => paramsFor(kind).find((item) => item.key === key);
+  const cases = [
+    // [kind, key, raw, ok, message 片段]
+    ["POWER", "v_line", "220", true],
+    ["POWER", "v_line", 0, false, /必须大于 0/],
+    ["POWER", "v_line", -1, false, /必须大于 0/],
+    ["POWER", "v_line", "", false, /不能为空/],
+    ["POWER", "v_line", "abc", false, /必须是数字/],
+    ["POWER", "freq_hz", 50, true],
+    ["POWER", "freq_hz", 0, false],
+    ["QS", "poles", 1, true],
+    ["QS", "poles", 3, true],
+    ["QS", "poles", 2, false, /只能取 1 \/ 3/],
+    ["KM", "aux_no", 2, true],
+    ["KM", "aux_nc", 1, true],
+    ["KM", "aux_no", 3, false],
+    ["SB", "type", 3, true],
+    ["SB", "type", 0, false],
+    ["FR", "set_current", 6, true],
+    ["FR", "set_current", 0, false],
+    ["KT", "delay_ms", 0, true],
+    ["KT", "delay_ms", -1, false, /不能小于 0/],
+    ["R", "resistance", 30, true],
+    ["R", "resistance", 0, false],
+    ["TB", "n", 2, true],
+    ["TB", "n", 8, true],
+    ["TB", "n", 1, false, /不能小于 2/],
+    ["TB", "n", 9, false, /不能大于 8/],
+    ["TB", "n", 5.5, false, /必须是整数/],
+  ];
+  for (const [kind, key, raw, ok, pattern] of cases) {
+    const result = validateParam(def(kind, key), raw);
+    assert.equal(result.ok, ok, `${kind}.${key}=${JSON.stringify(raw)}`);
+    if (!ok && pattern) assert.match(result.message, pattern);
+  }
+});
+
+test("operate KS setRpm 只写应用侧 rpm，状态位仍留给内核；非法值不求解", () => {
+  let state = place(createInitialState(), "KS");
+  state = { ...state, needsSolve: false };
+  const next = reducer(state, { type: "operate", ref: "KS1", action: "setRpm", value: 1300 });
+  assert.equal(next.devices[0].rpm, 1300);
+  assert.equal(next.devices[0].state_bits, state.devices[0].state_bits);
+  assert.equal(next.needsSolve, true);
+  assert.equal(next.selected, "KS1");
+
+  const same = reducer(next, { type: "operate", ref: "KS1", action: "setRpm", value: 1300 });
+  assert.equal(same, next, "rpm 不变时是幂等空操作");
+
+  for (const value of [-1, 65536, 1.5, "abc", ""]) {
+    const invalid = reducer(state, { type: "operate", ref: "KS1", action: "setRpm", value });
+    assert.equal(invalid.devices[0].rpm ?? 0, 0);
+    assert.equal(invalid.needsSolve, state.needsSolve);
+    assert.match(invalid.paramError.message, /转速必须是 0…65535 的整数/);
+  }
+});
+
+test("operate KS 不接受其他动作；KM 等仍不可人工操作", () => {
+  let state = place(createInitialState(), "KS");
+  assert.equal(reducer(state, { type: "operate", ref: "KS1", action: "press" }), state);
+  state = place(state, "KM");
+  assert.equal(reducer(state, { type: "operate", ref: "KM1", action: "press" }), state);
+});
+
+test("tick：KT 线圈带电才推进，失电归零，到点后不再增长", () => {
+  let state = place(createInitialState(), "KT", {
+    params: [15000, 10000, 0.02, 0.012, 0.001, 3000, 0, 0],
+    elapsed_ms: 2990,
+  });
+  state = { ...state, needsSolve: false, result: { terminals: [], devices: [{ id: 1, closed_bits: 0, flags: 1 }] } };
+
+  const advanced = reducer(state, { type: "tick", dt_ms: 10 });
+  assert.equal(advanced.devices[0].elapsed_ms, 3000);
+  assert.equal(advanced.needsSolve, true);
+  assert.equal(advanced.revision, state.revision + 1);
+
+  const timed = { ...advanced, needsSolve: false, result: { terminals: [], devices: [{ id: 1, closed_bits: 1, flags: 1 }] } };
+  assert.equal(reducer(timed, { type: "tick", dt_ms: 10 }), timed, "到点后保持，不每 10 ms 重算");
+
+  const unpowered = { ...advanced, needsSolve: false, result: { terminals: [], devices: [{ id: 1, closed_bits: 0, flags: 0 }] } };
+  const reset = reducer(unpowered, { type: "tick", dt_ms: 10 });
+  assert.equal(reset.devices[0].elapsed_ms, 0);
+});
+
+test("tick：FR 只看上一轮 W_OVERCURRENT，跳闸后不增长；无过流归零", () => {
+  let state = place(createInitialState(), "FR", {
+    params: [0.001, 6, 5000, 0.001, 0, 0, 0, 0],
+    elapsed_ms: 4990,
+  });
+  state = {
+    ...state,
+    needsSolve: false,
+    diags: [{ code: 100, level: 1, device_id: 1, terminal_id: 0 }],
+    result: { terminals: [], devices: [{ id: 1, closed_bits: 0, flags: 0 }] },
+  };
+
+  const advanced = reducer(state, { type: "tick", dt_ms: 10 });
+  assert.equal(advanced.devices[0].elapsed_ms, 5000);
+
+  const tripped = {
+    ...advanced,
+    needsSolve: false,
+    result: { terminals: [], devices: [{ id: 1, closed_bits: 2, flags: 0 }] },
+  };
+  assert.equal(reducer(tripped, { type: "tick", dt_ms: 10 }), tripped, "跳闸后保持");
+
+  const noOvercurrent = { ...advanced, needsSolve: false, diags: [] };
+  assert.equal(reducer(noOvercurrent, { type: "tick", dt_ms: 10 }).devices[0].elapsed_ms, 0);
+});
+
+test("tick 是非法的 dt / 没有 result 时不动状态", () => {
+  const state = place(createInitialState(), "KT", { elapsed_ms: 100 });
+  assert.equal(reducer(state, { type: "tick", dt_ms: 0 }), state);
+  assert.equal(reducer(state, { type: "tick", dt_ms: -10 }), state);
+  assert.equal(reducer(state, { type: "tick", dt_ms: "x" }), state);
+  const withStaleResult = { ...state, result: null };
+  assert.equal(reducer(withStaleResult, { type: "tick", dt_ms: 10 }), withStaleResult);
+});
+
+test("tick 属于提交型事件；不改入参，也不清掉行内参数错误", () => {
+  assert.equal(isCommitEvent({ type: "tick" }), true);
+  let state = place(createInitialState(), "KT", { elapsed_ms: 10 });
+  state = {
+    ...state,
+    result: { terminals: [], devices: [{ id: 1, closed_bits: 0, flags: 1 }] },
+    paramError: { ref: "KT1", key: "delay_ms", message: "不能为空", raw: "" },
+  };
+  const frozen = deepFreeze(state);
+  const snapshot = JSON.parse(JSON.stringify(frozen));
+  const next = reducer(frozen, { type: "tick", dt_ms: 10 });
+  assert.equal(next.devices[0].elapsed_ms, 20);
+  assert.deepEqual(next.paramError, state.paramError, "时钟 tick 不能吞掉用户的参数错误");
   assert.deepEqual(JSON.parse(JSON.stringify(frozen)), snapshot);
 });

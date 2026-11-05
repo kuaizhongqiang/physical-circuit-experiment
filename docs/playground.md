@@ -3,7 +3,7 @@
 读者：AI / 负责人
 类型：设计
 权威：M6 网页实验台的功能、结构、器件图元、样例、交互、参数、判据、部署与验收的唯一事实源
-状态：2026-11-04 首版；2026-11-05 补 §4.4 / §4.5（M6.4 样例加载与确定性排版）。实现按 M6.0…M6.8 分片，口径见 `DECISION.md` D-20261104-01…10
+状态：2026-11-04 首版；2026-11-05 补 §4.4 / §4.5（M6.4 样例加载与确定性排版）与 §5.1 / §5.4 / §6.2 / §7.2（M6.5 参数、操作、接点表与时钟启动条件）。实现按 M6.0…M6.8 分片，口径见 `DECISION.md` D-20261104-01…10
 依赖：`demo.md` §3.4 / §4 / §6 / §8（几何、图元、数值格式、诊断文案）、`domain-model.md` §2 §4（接点表、参数）、`solver.md` §5（数值常量）、`verification.md` §2 §3 §4（容差与断言）、`api.md` §5 §7（错误码、JSON 门面）、`integration.md` §2 §4（应用侧时钟、Web 侧）
 
 ## 1 目标与两个入口
@@ -283,6 +283,7 @@ state 是纯数据：`{ mode, devices[], wires[], selected, selectedWire, pendin
 | `selectWire(index)` | 任意 | `IDLE` | 否 | 选中 / 取消选中导线（同时清空器件选中与待接线） |
 | `cancel()` / `Esc` / 点空白 | `PICK_A` / `DRAG` | `IDLE` | 否 | 取消待接线 / 拖动 / 导线选中，回到提交前状态 |
 | `operate(ref, action)` | `IDLE` | `IDLE` | 是 | 按 §5.4 改 `state_bits` / `rpm` / `elapsed_ms`；`solve` |
+| `tick(dt_ms)` | 任意 | 不变 | 提交（仅累积量变化时） | 应用侧时钟 10 ms 步进（§5.4）：只推进 `KT` / `FR` 的 `elapsed_ms`，有变化才 `solve`；不启动 / 停止时钟 |
 | `setParam(ref, field, value)` | `IDLE` | `IDLE` | 是 | 校验通过才改；接点数变化时按 §2.4 重排；`solve` |
 | `clearWires()` | `IDLE` | `IDLE` | 是 | 一次清空 `wires`（先确认）；`solve` |
 | `loadSample(case)` | 任意 | `IDLE` | 是 | 按 §4.2 重建 state；`solve` |
@@ -320,7 +321,7 @@ state 是纯数据：`{ mode, devices[], wires[], selected, selectedWire, pendin
 | `KS` | 转速 `rpm` 由人给（滑块 / 数字框，口径 05）；这是应用侧输入，不是操作触点 | 不建惯性模型；`rpm` ≥ `n_pick` 闭合、≤ `n_drop` 释放 |
 | `KT` / `FR` | 整定值可改（§7）；累积量 `elapsed_ms` 由应用侧时钟推进 | 见下 |
 
-**应用侧时钟**（沿用 `integration.md` §2）：页面用 `requestAnimationFrame` 时间戳做 **10 ms 固定步长累加器**，只在 `KT` 线圈带电时推进 `KT.elapsed_ms`、只在 `FR` 热元件过载时推进 `FR.elapsed_ms`；页面隐藏时暂停，恢复时单次补算上限 200 ms。`rpm` **不**随时钟推进（口径 05 明确由人给）。
+**应用侧时钟**（沿用 `integration.md` §2）：页面用 `requestAnimationFrame` 时间戳做 **10 ms 固定步长累加器**，只在 `KT` 线圈带电时推进 `KT.elapsed_ms`、只在 `FR` 热元件过载时推进 `FR.elapsed_ms`；页面隐藏时暂停，恢复时单次补算上限 200 ms。`rpm` **不**随时钟推进（口径 05 明确由人给）。时钟在页面**首次提交型操作**（改参数 / 操作器件 / 改线）后启动；加载 / 切换样例、重置、清空后暂停，直到下一次提交型操作 —— 这样样例加载后先停在 fixture 给的初始累积量，不会一进入页面就自行走完延时。`KT.elapsed_ms` 在线圈失电时归零，到点后不再增长；`FR.elapsed_ms` 在上一轮无 `W_OVERCURRENT` 时归零，跳闸后不再增长。
 
 **触点状态回传**（D-20261103-29）：每次 `solve` 成功后，把 `KM` / `KA` / `KT` / `KS` / `FR` 的 `closed_bits` 写回该器件 `state_bits`（`flags.bit0 = 0`）作为下一轮提示；不写回会导致「松开按钮 → 自锁触点复位 → 立即失电」，自锁永远演示不出来。
 
@@ -340,9 +341,9 @@ state 是纯数据：`{ mode, devices[], wires[], selected, selectedWire, pendin
 |---|---|
 | 工具栏 | 样例下拉（C1…C10 ＋「白画布」）、删除选中、`清空全部导线`（先确认）、`重置`、严格模式开关 |
 | 顶部摘要 | `案例名 ｜ 器件 N ｜ 接点 N ｜ 导线 N ｜ 诊断 N` |
-| 接点表 | 按器件分组，行 = 接点：位号 / 接点 / `V` / `I` / 状态（触点闭合 / 断开；`HAS_I = 0` 显示 `—`） |
+| 接点表 | 按器件分组、可滚动，行 = 接点：位号 / 接点 / `V` / `I` / 等势点 / 连通分量 / 状态（触点闭合 / 断开；`HAS_I = 0` 显示 `—`） |
 | 导线清单 | 序号 / from / to / 电流；新加的在最上并高亮，点行在画布上高亮对应导线 |
-| 属性面板 | 选中器件的可编辑参数（§7）＋ 只读常量（灰显并标注来源） |
+| 属性面板 | 选中器件的可编辑参数（§7）＋ 操作控件（`SB` / `SQ` / `QS` / `KS`，§5.4）＋ 只读常量（灰显并标注来源） |
 
 ### 6.3 悬停浮层
 
@@ -383,7 +384,7 @@ state 是纯数据：`{ mode, devices[], wires[], selected, selectedWire, pendin
 | `M` 绕组 `R` / `X`、`EL` 额定电压 / 功率、`KS` 吸合 / 释放转速、`FR` 延时 | `domain-model.md` §4 |
 | 电源内阻 `r_src` 等 `POWER` 其余参数 | `domain-model.md` §4 / `api.md` §2.4 |
 
-只读项灰显并标注来源文档；**禁止**在 playground 里复制一份参数数值作为默认值之外的第二来源（缺省值由 `device-catalog.js` 引用常量或 fixture 值）。
+只读项灰显并标注来源文档；数值**从当前器件的 `params[8]` 读取**（样例来自 fixture，新放置来自 `device-catalog.js` 缺省值），页面不另存一份。**禁止**在 playground 里复制一份参数数值作为默认值之外的第二来源（缺省值由 `device-catalog.js` 引用常量或 fixture 值）。
 
 ## 8 正确性判据
 

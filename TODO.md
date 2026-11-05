@@ -21,7 +21,6 @@
 
 M6 网页电路实验台按切片串行推进（一片一 PR，顺序与门禁见 `docs/roadmap.md` §7、契约见 `docs/playground.md`）：
 
-- **T-19**（M6.5 / #43）参数编辑与操作面板：可编辑参数子集、器件操作、C9 转速滑块。
 - **T-20**（M6.6 / #44）自检脚本、页面自检页与 CI：`scripts/lib/fixture-compare.mjs`、完整 `playground-check.mjs`、`selftest.html`、CI `wasm` job 加一步。
 - **T-21**（M6.7 / #45）Tailscale 部署与浏览器验收：`scripts/serve.mjs` 可选 `--host`、`docs/playground.md` §9 / §10 回填。
 - **T-22**（M6.8 / #46）M6 收口：README、索引、G6 结果回写与三台账齐账。

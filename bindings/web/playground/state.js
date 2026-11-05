@@ -4,7 +4,7 @@
 //   docs/playground.md §2.2  模块职责与禁令：事件入、状态出；不碰 DOM / solve / Date
 //   docs/playground.md §2.4  接点 id / terminal_base 分配与删除后的重排
 //   docs/playground.md §5.1  交互状态机：mode / devices / wires / selected / drag / sample / result / diags
-//   docs/playground.md §5.4  操作器件的触点状态（SB / SQ 瞬动，QS 保持）
+//   docs/playground.md §5.4  操作器件的触点状态（SB / SQ 瞬动，QS 保持，KS 转速）与 KT / FR 应用侧时钟
 //   docs/playground.md §7.1  可编辑参数子集与非法值处理
 //
 // 本文件只做“状态转换”：提交型事件把 needsSolve 置 true，由宿主（index.html）调用 solve.js。
@@ -35,8 +35,8 @@ const REF_PREFIX = Object.freeze({
 
 // 提交型事件：必须重新 solve（§5.3 第 1 条）。select / movePreview / cancel 不在其中。
 const COMMIT_TYPES = Object.freeze(new Set([
-  "place", "moveCommit", "remove", "setParam", "operate", "loadSample", "reset", "clear", "setStrict",
-  "addWire", "completeWire", "removeWire", "clearWires",
+  "place", "moveCommit", "remove", "setParam", "operate", "tick", "loadSample", "reset", "clear",
+  "setStrict", "addWire", "completeWire", "removeWire", "clearWires",
 ]));
 
 const MARGIN = 24;
@@ -213,7 +213,8 @@ function poleMask(kind, aux) {
 
 // ── 参数变更与接点重排（§2.4 / §7.1） ───────────────────────────────────────
 
-function validateParam(definition, raw) {
+/** 表单校验纯函数（docs/playground.md §7.1）：合法返回 `{ok, value}`，非法返回 `{ok:false, message}`。 */
+export function validateParam(definition, raw) {
   const label = definition.label;
   if (definition.control === "select") {
     const value = Number(raw);
@@ -297,7 +298,13 @@ function setParamEvent(state, event) {
   if (!validation.ok) {
     return {
       ...state,
-      paramError: { ref: device.ref, key: definition.key, message: validation.message },
+      paramError: {
+        ref: device.ref,
+        key: definition.key,
+        message: validation.message,
+        // 保留用户原始输入，行内报错时输入框仍显示它，便于就地改。
+        raw: event.value,
+      },
     };
   }
 
@@ -411,9 +418,43 @@ function removeEvent(state, event) {
   });
 }
 
+/** KS 转速是应用侧输入（docs/playground.md §5.4 / D-20261104-05）：只写 rpm，触点状态仍由内核判定。 */
+const RPM_MIN = 0;
+const RPM_MAX = 0xffff;
+
+function rejectRpm(state, device, rawValue) {
+  return {
+    ...state,
+    paramError: {
+      ref: device.ref,
+      key: "rpm",
+      message: `转速必须是 ${RPM_MIN}…${RPM_MAX} 的整数（rpm）`,
+      raw: rawValue,
+    },
+  };
+}
+
+function operateKs(state, device, action, rawValue) {
+  if (action !== "setRpm" && action !== "rpm") return state;
+  // 空输入不当作 0：避免清空转速框时误把转速归零。
+  if (typeof rawValue === "string" && rawValue.trim() === "") {
+    return rejectRpm(state, device, rawValue);
+  }
+  const value = Number(rawValue);
+  if (!Number.isFinite(value) || !Number.isInteger(value) || value < RPM_MIN || value > RPM_MAX) {
+    return rejectRpm(state, device, rawValue);
+  }
+  if (value === (device.rpm ?? 0)) return state;
+  const devices = state.devices.map((item) => (
+    item.ref === device.ref ? { ...item, rpm: value } : item
+  ));
+  return commit({ ...state, devices }, { selected: device.ref });
+}
+
 function operateEvent(state, event) {
   const device = resolveDevice(state, event);
   if (!device) return state;
+  if (device.kind === "KS") return operateKs(state, device, event.action, event.value);
   if (!["SB", "SQ", "QS"].includes(device.kind)) return state;
 
   const action = event.action;
@@ -433,6 +474,51 @@ function operateEvent(state, event) {
     item.ref === device.ref ? { ...item, state_bits: bits, flags: 1 } : item
   ));
   return commit({ ...state, devices }, { selected: device.ref });
+}
+
+// ── 应用侧时钟（docs/playground.md §5.4 / integration.md §2） ───────────────
+// 只推进 KT / FR 的累积量；电气判定（到点、跳闸、KS 触点）仍在内核。
+// 由宿主按 10 ms 固定步长发 tick 事件；本函数是纯函数，不读时钟。
+function tickEvent(state, event) {
+  const dt = Math.floor(Number(event.dt_ms ?? event.dt));
+  if (!Number.isFinite(dt) || dt <= 0) return state;
+  if (!state.result) return state;
+
+  const resultById = new Map((state.result.devices ?? []).map((result) => [result.id, result]));
+  const overcurrent = (state.diags ?? []).some((diag) => diag.code === 100);
+  let changed = false;
+
+  const devices = (state.devices ?? []).map((device) => {
+    if (device.kind !== "KT" && device.kind !== "FR") return device;
+    const elapsed = Number.isInteger(device.elapsed_ms) ? device.elapsed_ms : 0;
+    const result = resultById.get(device.id);
+    let next = elapsed;
+
+    if (device.kind === "KT") {
+      const energized = Boolean(result && (result.flags & 1));
+      const timed = Boolean(result && (result.closed_bits & 1)); // bit0 = 55-56 闭合
+      if (!energized) next = 0;               // 通电延时型：失电归零
+      else if (!timed) next = elapsed + dt;   // 到点后不再增长，避免每 10 ms 重算
+    } else {
+      const tripped = Boolean(result && (result.closed_bits & 2)); // bit1 = 97-98 闭合
+      if (!overcurrent) next = 0;             // 上一轮无 W_OVERCURRENT：归零
+      else if (!tripped) next = elapsed + dt;
+    }
+
+    if (next === elapsed) return device;
+    changed = true;
+    return { ...device, elapsed_ms: Math.min(next, 0xffffffff) };
+  });
+
+  if (!changed) return state;
+  // 时钟 tick 不抢用户的行内错误 / 提示：只更新累积量与求解标记。
+  return {
+    ...state,
+    devices,
+    revision: (state.revision ?? 0) + 1,
+    needsSolve: true,
+    solveError: null,
+  };
 }
 
 // ── 接线（§5.2 拒绝规则 / §5.3 提交型变更） ─────────────────────────────────
@@ -666,7 +752,8 @@ function resetEvent(state) {
  *   move / moveCommit  { ref, x, y } 或 { ref, dx, dy }           move = 预览；moveCommit 提交
  *   remove       { ref }（或 { id }）                              提交（级联删线 + 重排）
  *   setParam     { ref, field, value }                            提交（仅合法值）
- *   operate      { ref, action: "press"|"release"|"toggle" }      提交
+ *   operate      { ref, action: "press"|"release"|"toggle" }      提交（KS 用 { action:"setRpm", value }）
+ *   tick         { dt_ms }                                        提交（仅 KT / FR 累积量变化时）
  *   loadSample   { sample, devices?, wires?, strictReference? }   提交
  *   reset        —                                                提交（白画布清空）
  *   clear        —                                                提交（清空为白画布）
@@ -700,6 +787,8 @@ export function reducer(state, event) {
       return setParamEvent(state, event);
     case "operate":
       return operateEvent(state, event);
+    case "tick":
+      return tickEvent(state, event);
     case "pickTerminal":
       return pickTerminalEvent(state, event);
     case "completeWire":

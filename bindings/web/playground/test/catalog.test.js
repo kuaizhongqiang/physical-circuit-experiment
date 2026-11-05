@@ -13,6 +13,7 @@ import {
   defaultParams,
   defaultStateBits,
   paramsFor,
+  readonlyFor,
   stateBitsFor,
   terminalCount,
   terminalsFor,
@@ -198,6 +199,37 @@ test("可编辑参数与落位逐条对应 docs/playground.md §7.1", () => {
   assert.deepEqual(paramsFor("SB")[0].options.map((option) => option.value), [1, 2, 3]);
   assert.deepEqual(paramsFor("TB")[0].min, 2);
   assert.deepEqual(paramsFor("TB")[0].max, 8);
+});
+
+test("只读常量逐条对应 docs/playground.md §7.2，值只给 params 下标不存第二份", () => {
+  const expected = {
+    POWER: [["r_src", 2], ["phase_seq", 3]],
+    QS: [["r_contact", 0]],
+    FU: [["r_contact", 0]],
+    KM: [["coil_r", 0], ["coil_x", 1], ["pick_current", 2], ["drop_current", 3], ["r_contact", 4]],
+    KA: [["coil_r", 0], ["coil_x", 1], ["pick_current", 2], ["drop_current", 3], ["r_contact", 4]],
+    KT: [["coil_r", 0], ["coil_x", 1], ["pick_current", 2], ["drop_current", 3], ["r_contact", 4]],
+    KS: [["n_pick", 0], ["n_drop", 1], ["r_contact", 2]],
+    FR: [["r_thermal", 0], ["delay_ms", 2], ["r_contact", 3]],
+    SB: [["r_contact", 0]],
+    SQ: [["r_contact", 0]],
+    M: [["r_phase", 0], ["x_phase", 1]],
+    R: [],
+    EL: [["rated_voltage", 0], ["power", 1]],
+    TB: [],
+    PE: [],
+  };
+  for (const kind of KIND_ORDER) {
+    const actual = readonlyFor(kind).map(({ key, index }) => [key, index]);
+    assert.deepEqual(actual, expected[kind], `${kind} 只读常量`);
+    for (const item of readonlyFor(kind)) {
+      assert.equal(typeof item.label, "string");
+      assert.equal(typeof item.unit, "string");
+      assert.match(item.source, /^(domain-model|api|solver)\.md/);
+      // 只读项只是 params 下标的显示元数据，不得自带数值。
+      assert.equal("value" in item, false, `${kind}.${item.key} 不能复制第二份数值`);
+    }
+  }
 });
 
 test("默认框尺寸逐条对应 docs/playground.md §3.2", () => {
