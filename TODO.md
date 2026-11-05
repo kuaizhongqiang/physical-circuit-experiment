@@ -21,7 +21,6 @@
 
 M6 网页电路实验台按切片串行推进（一片一 PR，顺序与门禁见 `docs/roadmap.md` §7、契约见 `docs/playground.md`）：
 
-- **T-21**（M6.7 / #45）Tailscale 部署与浏览器验收：`scripts/serve.mjs` 可选 `--host`、`docs/playground.md` §9 / §10 回填。
 - **T-22**（M6.8 / #46）M6 收口：README、索引、G6 结果回写与三台账齐账。
 
 **二期再启动时**：从 `docs/roadmap.md` §6 与 GitHub milestone `二期` 取条目，按新一轮 P 编号重新开待拍板；本文件不预置二期待办。
