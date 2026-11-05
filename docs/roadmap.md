@@ -3,7 +3,7 @@
 读者：AI / 负责人
 类型：计划
 权威：实施顺序、里程碑交付物、验收门禁的唯一事实源
-状态：2026-11-04 更新；**M0–M5 已全部执行完毕**（门禁结果见 §3.1），**M6 网页电路实验台（二维）进行中**，切片计划与门禁 G6 见 §7（口径对应 `DECISION.md` D-20261103-01…31、D-20261104-01…10）
+状态：2026-11-05 更新；**M0–M6 已实施完成**（G0–G5 结果见 §3.1，G6 见 §7：本机判据全部通过，D-20 待负责人确认），口径对应 `DECISION.md` D-20261103-01…31、D-20261104-01…11
 依赖：`overview.md`、`architecture.md`、`solver.md`、`api.md`、`integration.md`、`verification.md`、`../TODO.md`
 
 ## 1 计划形态
@@ -23,7 +23,7 @@
 | **M3** ✅ | 双端打通 | C ABI 定稿 ＋ C# 四件套 ＋ wasm 封装 ＋ 双端比对脚本 | **G3** | T-12 |
 | **M4** ✅ | 演示页（只做 C3） | `bindings/web/demo.*`，规格见 `demo.md` | **G4** | T-11 |
 | **M5** ✅ | 交付收口 | `AGENT.md` §4 实测命令回填 ＋ 二期清单 ＋ 首次 `R-01`…`R-NN` 齐账 | **G5** | T-13 |
-| **M6** 🚧 | 网页电路实验台（二维） | `bindings/web/playground/` ＋ `docs/playground.md` ＋ C1…C10 样例 ＋ `scripts/playground-check.mjs` ＋ tailnet 部署 | **G6** | T-15…T-22 |
+| **M6** ✅ | 网页电路实验台（二维） | `bindings/web/playground/` ＋ `docs/playground.md` ＋ C1…C10 样例 ＋ `scripts/playground-check.mjs` ＋ tailnet 部署 | **G6** 🚧 | T-15…T-22 |
 
 ## 3 里程碑细则
 
@@ -188,6 +188,20 @@
 - `cargo test --workspace` 与 `node scripts/compare.mjs` 仍全绿（M6 不碰内核，回归不得退化）。
 
 **失败处理**：任一门禁未过不进下一片；发现 `fixtures/` 期望值有误时**停下提问**，不许自行改期望值（`DECISION.md` D-20261104-10）。
+
+**G6 结论（2026-11-05，M6.8 收口）**：**本机判据全部通过；D-20「从另一台 tailnet 设备打开」待负责人人工确认后 G6 才算通过。**
+
+| 判据 | 真实输出 | 结论 |
+|---|---|---|
+| `node .agent/skills/doc-guard/check.mjs` | `doc-guard 全过`；`DECISION.md` 决策 41 条、`RECORD.md` 提交 16 条、`TODO.md` 待办 0 条 | ✅ |
+| `cargo test --workspace` | `layout_tests` 2 passed；`all_fixtures_pass` 1 passed；0 failed | ✅ |
+| `node scripts/compare.mjs` | `wasm 侧跑了 28 个 case，失败 0 处` | ✅ 28/28 |
+| `node scripts/playground-check.mjs` | `样例 10/10，几何 15/15 类（32/32 配置），复算 28/28 case，误接 20/20 条` | ✅ |
+| `node --test bindings/web/playground/test/` | `tests 122`、`pass 122`、`fail 0` | ✅ |
+| `bindings/web/playground/selftest.html` | M6.7 本机记录 `通过 28 / 28`，与脚本 `28/28` 一致 | ✅ |
+| README 从零启动 | `node scripts/serve.mjs 8080 --host 0.0.0.0`；`index.html` `200`（46313 B）、`selftest.html` `200`（11525 B）、wasm `200`（180192 B） | ✅ |
+| D-1…D-19 | M6.7 本机自测：D-1 / D-2 / D-3 / D-4 / D-15 / D-18 通过，D-19 判据覆盖；其余人工项随 D-20 确认（`playground.md` §10.2 / §10.3） | 🚧 人工项待确认 |
+| D-20 | 未从另一台 tailnet 设备代验，不伪造另一台设备的结果 | 🚧 **待负责人确认** |
 
 ## 8 与三台账的关系
 

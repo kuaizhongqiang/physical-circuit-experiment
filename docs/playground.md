@@ -3,7 +3,7 @@
 读者：AI / 负责人
 类型：设计
 权威：M6 网页实验台的功能、结构、器件图元、样例、交互、参数、判据、部署与验收的唯一事实源
-状态：2026-11-04 首版；2026-11-05 补 §4.4 / §4.5（M6.4 样例加载与确定性排版）、§5.1 / §5.4 / §6.2 / §7.2（M6.5 参数、操作、接点表与时钟启动条件）、§9 运行手册与 §10.2 / §10.3（M6.7 部署与验收记录）。实现按 M6.0…M6.8 分片，口径见 `DECISION.md` D-20261104-01…10
+状态：2026-11-05 定稿（M6 收口）：M6.0…M6.8 已完成；本机自动判据全部通过，D-20「从另一台 tailnet 设备打开」及 D-1…D-19 人工确认待负责人完成后 G6 才算通过。口径见 `DECISION.md` D-20261104-01…11
 依赖：`demo.md` §3.4 / §4 / §6 / §8（几何、图元、数值格式、诊断文案）、`domain-model.md` §2 §4（接点表、参数）、`solver.md` §5（数值常量）、`verification.md` §2 §3 §4（容差与断言）、`api.md` §5 §7（错误码、JSON 门面）、`integration.md` §2 §4（应用侧时钟、Web 侧）
 
 ## 1 目标与两个入口
@@ -57,13 +57,16 @@ bindings/web/playground/
 ├── diag-text.js          # 诊断码 → 中文文案（表见 demo.md §8）
 ├── selftest.html         # 页面内自检页：10 样例 × 全部 case 的绿/红表
 ├── samples/C1.json … C10.json   # 每样例一个 layout ＋ 操作状态 sidecar（§4）
-└── test/*.test.js        # node --test：reducer / 几何 / catalog / 校验
+├── test/*.test.js        # node --test：reducer / 几何 / catalog / 校验
+└── evidence/             # 人工验收截图（before / after / tailnet），单张 ≤300KB
 scripts/
 ├── lib/fixture-compare.mjs      # 比对库：容差与断言逻辑的唯一实现（M6.6 抽出）
 ├── playground-check.mjs         # 样例复算 ＋ 20 条误接的机器判据（§8）
 ```
 
 `scripts/compare.mjs` 在 M6.6 改为调用 `scripts/lib/fixture-compare.mjs`，**行为不变**（不允许出现第二份容差）。
+
+`evidence/` 只存人工验收截图（D-1…D-20 的 before / after / tailnet 证据），M6.7 之前的截图保留。仓库体积实测（2026-11-05，主工作区）：`du -sh .git` ≈ 6.8 MB，其中 `bindings/web/playground/evidence/` ≈ 5.6 MB —— **验收截图入库是可接受的体积代价**，换来验收证据可追溯、不依赖外部图床；新增截图必须压到单张 ≤300KB（`AGENT.md` §2）。
 
 ### 2.2 模块职责与禁令
 
@@ -530,7 +533,7 @@ nohup node scripts/serve.mjs 8080 --host 0.0.0.0 > /tmp/playground-8080.log 2>&1
 | 2026-11-05 | 本机 Linux（`kuaizhongqiang01`，tailnet IP `100.87.60.42`）· Chromium 153 headless（Playwright） | 智能体（本机自测） | 本机项通过：D-1、D-2、D-3、D-4、D-15、D-18；D-19 判据覆盖，页面提示待人工抽样 | 命令、真实输出与截图见 §10.3；8080 测试后已停止，未长期占用 |
 | 待负责人 | tailnet 另一台设备 | 负责人 | **待验收：D-20**（含 D-1…D-19 逐项人工确认） | 按 §9.2 常驻后从另一台设备打开 §9.3 地址，按 §10.1 逐项操作 |
 
-**记录规则**：本表由 M6.7（Tailscale 部署与浏览器验收）片回填（2026-11-05）；M6.8 收口只做定稿与索引，不改判据。未留痕的项按未通过处理。
+**记录规则**：本表由 M6.7（Tailscale 部署与浏览器验收）片回填（2026-11-05）；M6.8 收口只做定稿与索引，不改判据。未留痕的项按未通过处理。**D-20 仍为「待负责人确认」，本片没有把它改成通过**；D-1…D-19 的人工项也随 D-20 一并确认。
 
 ### 10.3 M6.7 本机自测记录（2026-11-05）
 

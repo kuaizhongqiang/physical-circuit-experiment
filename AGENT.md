@@ -3,7 +3,7 @@
 读者：AI
 类型：纪律
 权威：本工程**唯一**"有内容"的 agent 手册；**只写纪律与索引，不写描述**
-状态：2026-11-03 建立（口径已拍板 30 条、编号至 D-20261103-31；`docs/` 9 份文档；**M0–M5 全部完成**，剩余为二期清单，见 `docs/roadmap.md` §6）
+状态：2026-11-03 建立（口径已拍板 41 条、编号至 D-20261104-11；`docs/` 10 份文档；**M0–M6 已实施完成**（G6 本机判据全部通过；D-20 待负责人人工确认后 G6 才算通过），二期见 `docs/roadmap.md` §6）
 依赖：`docs/`（工程内容事实源）、`docs/raw/`（只读原始需求）、`TODO.md` / `DECISION.md` / `RECORD.md`（三份台账）
 
 本文件只写**做什么 / 不许做什么 / 去哪查**。工程是什么、电路怎么算、元器件怎么建模 —— 一律查 `docs/`，本文件**不复述**。
@@ -40,7 +40,7 @@
 - **参数有出处**：线圈电阻、吸合 / 释放电压、动作延时、空气（漏电）电阻、收敛容差等一切数值集中在一处常量与参数表，并注明来源；**禁止**散落在调用点，**禁止**被测试硬编码第二份。
 - **范围外不做**：`docs/overview.md` 的"不做"清单是硬边界；新增范围先走 `TODO.md` §1 拍板。
 - **`docs/raw/` 只读**：原始需求不编辑、不润色、不改文件名；解释与推导写在 `docs/` 对应文档里。
-- **二进制不进库**：`*.dll` / `*.wasm` / `*.node` / `node_modules/` / 构建输出目录不入库，只提交源码与构建脚本。
+- **二进制不进库**：`*.dll` / `*.wasm` / `*.node` / `node_modules/` / 构建输出目录不入库，只提交源码与构建脚本。**例外**：`bindings/web/playground/evidence/` 的人工验收截图可入库（单张 ≤300KB），M6.7 之前的截图保留。
 - **禁止手写资产元数据**：本仓库不存放 Unity 工程本体（归属见 `TODO.md` §1 P-09）。若日后引入，`.meta` 必须由 Unity 生成并随资产**成对**提交，**绝不手写 GUID**。
 - **`.ps1` 必须 UTF-8 with BOM**（PowerShell 5.1 按 ANSI 解码无 BOM 文件，中文字符串会破坏引号配对）。
 
@@ -72,6 +72,8 @@
   - 跑单个测试：`cargo test -p pcx-core --test fixtures -- --nocapture`
   - 双端比对：`node scripts/compare.mjs`（wasm 侧 28 个 case 与 fixture 期望逐条比对）
   - 演示页：`node scripts/serve.mjs` → `http://localhost:8080/bindings/web/demo.html`
+  - 实验台自检：`node scripts/playground-check.mjs`（结构 10/10、几何 15 类、复算 28/28、误接 20/20）
+  - 实验台服务：`node scripts/serve.mjs 8080 --host 0.0.0.0` → `http://127.0.0.1:8080/bindings/web/playground/index.html`（tailnet 访问见 `docs/playground.md` §9）
   - C# 编译校验：`dotnet build bindings/csharp -v q`（netstandard2.1，0 警告 0 错误）
   - **发布**：`gh workflow run release.yml -f version=vX.Y.Z` —— tag 必须等于 `Cargo.toml` 的 `version`，否则流水线报错；产物挂 GitHub Release，不入库（`.agent/workflows/05-release.md`）
 - 验收基线：`cargo test --workspace` 全绿 ＋ `node scripts/compare.mjs` 通过 ＋ `dotnet build` 0 错误（见 §2「双端等价」）。
