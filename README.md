@@ -42,16 +42,17 @@ Unity 工程里用 C# 做拓扑电路计算踩过坑，但问题不在语言 —
 
 ## 现在到哪一步
 
-**口径与设计已完成，代码尚未开始。**
+**M0–M6 已实施完成。** 本机自动判据全部通过；D-20「从另一台 tailnet 设备打开」及 D-1…D-19 的人工确认待负责人完成，之后 G6 才算通过。
 
 | 项 | 状态 |
 |---|---|
-| 工程口径 | **27 条已拍板**（编号至 D-20261103-28，[`DECISION.md`](DECISION.md)），待拍板 0 |
-| 工程文档 | **9 份首版完成**（[`docs/README.md`](docs/README.md)） |
+| 工程口径 | **41 条已拍板**（编号至 D-20261104-11，[`DECISION.md`](DECISION.md)），待拍板 0 |
+| 工程文档 | **10 份完成**（[`docs/README.md`](docs/README.md)） |
 | 内核 | **已落地**：15 类器件、相量 MNA、开关迭代、短路拓扑预检；10 份 fixture / 28 个 case 全绿 |
 | 双端 | DLL 与 wasm 均产出；wasm 侧 28 个 case 与 fixture 期望逐条一致 |
 | 演示页 | 已实现并人工验收（Canvas 2D，C3 两地控制）：悬停五行数据、按下/抬起操作、删光重接、导线清单（[`docs/demo.md`](docs/demo.md)） |
-| 里程碑 | **M0–M5 全部完成**；二期清单见 [`docs/roadmap.md`](docs/roadmap.md) §6 |
+| 网页实验台 | **已实现**（M6.0–M6.8）：白画布编辑、点接点接线、C1…C10 十样例、参数与操作面板、页面自检；M6.7 本机自测记录见 [`docs/playground.md`](docs/playground.md) §10.3，**D-20 待负责人人工确认**（§10.2） |
+| 里程碑 | **M0–M6 实施完成**；G6 结论与证据见 [`docs/roadmap.md`](docs/roadmap.md) §7，二期清单见 §6 |
 
 ## 目录
 
@@ -61,9 +62,10 @@ crates/cabi/        C ABI 边界 → pcx_circuit.dll（Unity P/Invoke）
 crates/wasm/        wasm32 入口（手写 C ABI，不依赖 wasm-pack）
 bindings/csharp/    Unity 四件套（DLL 落位 / 接口 / 样例 / 文档）
 bindings/web/       PCX.js 门面 ＋ Canvas 2D 演示页
+bindings/web/playground/  M6 网页实验台（白画布 / C1…C10 十样例 / 自检页）
 fixtures/           C1…C10 网表 ＋ 期望值（双端共用的判据）
-scripts/            build / compare / serve
-docs/               工程内容事实源（9 份设计文档）
+scripts/            build / compare / serve / playground-check
+docs/               工程内容事实源（10 份设计文档）
 .agent/             agent 操作目录（流程 / 技能脚本 / 样例 / 踩坑笔记）
 .github/            CI 与 issue、PR 模板
 AGENT.md            agent 唯一手册（纪律与索引）
@@ -85,6 +87,13 @@ node scripts/compare.mjs
 
 # 演示页（必须走 http，别用 file://）
 node scripts/serve.mjs   # → http://localhost:8080/bindings/web/demo.html
+
+# 网页实验台（M6）：tailnet 内可访问；本机访问把地址换成 127.0.0.1
+node scripts/serve.mjs 8080 --host 0.0.0.0
+# → http://localhost:8080/bindings/web/playground/index.html
+
+# 实验台自检：10 样例 × 28 case ＋ 20 条误接
+node scripts/playground-check.mjs
 
 # C# 绑定编译校验
 dotnet build bindings/csharp -v q
