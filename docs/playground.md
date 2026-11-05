@@ -49,7 +49,7 @@ bindings/web/playground/
 ├── index.html            # 页面骨架：工具栏 ＋ 画布 ＋ 右侧面板 ＋ 诊断栏
 ├── canvas.js             # Canvas 2D 渲染、命中测试、悬停与拖动预览
 ├── state.js              # 纯数据模型 ＋ 纯函数 reducer（无 DOM、可在 node 里跑）
-├── solve.js              # state → pcx.js 入参 → solve → 结果并入 state
+├── solve.js              # state → pcx.js 入参 → solve → 结果并入 state；导出可复现网表 JSON
 ├── device-catalog.js     # 15 类器件的图元元数据（接点、stateBits、参数、默认框、符号）
 ├── model.js              # 器件增删改与接点 id / terminal_base 分配（纯函数，供 state.js 调用）
 ├── geometry.js           # terminalPoint / 正交走线 / 框内裁剪（Liang–Barsky）
@@ -74,7 +74,7 @@ scripts/
 |---|---|---|
 | `state.js` | 纯数据 ＋ reducer：`place` / `select` / `move` / `remove` / `setParam` / `operate` / `pickTerminal` / `completeWire` / `addWire` / `removeWire` / `selectWire` / `clearWires` / `cancel` / `loadSample` / `reset` | 不碰 DOM、不调 `solve`、不读 `Date` |
 | `model.js` | 器件增删改与接点 id / `terminal_base` 分配、导线端点重写（纯函数） | 不含布局坐标、不碰 DOM |
-| `solve.js` | 把 state 映射成 `{devices, wires, config, strict_reference}`，调 `pcx.solve`，把 `terminals` / `devices` / `diags` 并入 state | 不做任何电气判定、不改输入数值 |
+| `solve.js` | 把 state 映射成 `{devices, wires, config, strict_reference}`，调 `pcx.solve`，把 `terminals` / `devices` / `diags` 并入 state；导出可复现网表 JSON（§5.5） | 不做任何电气判定、不改输入数值 |
 | `device-catalog.js` | 每 kind 的接点表、`stateBits`、可编辑参数定义、默认框尺寸、符号 / 显示名 | 不含布局坐标（坐标是数据） |
 | `geometry.js` | `terminalPoint`、接点命中半径、正交走线、框内裁剪 | 不决定器件位置 |
 | `samples.js` | 读 `samples/C*.json` 与 `fixtures/C*.json`，生成初始 state；样例切换与重置 | 不复制网表 / 期望值 |
@@ -330,6 +330,33 @@ state 是纯数据：`{ mode, devices[], wires[], selected, selectedWire, pendin
 
 **触点状态显示**（issue #61）：面板「当前状态 → 触点」与接点表状态列一律读**最近一次 `result.closed_bits`**，不读回写后的提示值 `state_bits`；回写只用于下一轮求解。只有尚未求解（还没有 `result`，或 `result` 里没有该器件结果）时才回退 `state_bits`，并在 UI 明写「未求解」。
 
+### 5.5 导出网表 JSON（issue #62）
+
+工具栏「**导出网表 JSON**」把当前画布导出为一个 JSON：
+
+```json
+{
+  "strict_reference": false,
+  "config": {},
+  "devices": [ { "ref": "P1", "kind": "POWER", "id": 1, "terminal_base": 0, "aux": 0, "params": [380, 50, 0.001, 1, 0, 0, 0, 0], "state_bits": 0, "flags": 0, "elapsed_ms": 0, "rpm": 0, "shaft_group": 0 } ],
+  "wires": [ { "a": 0, "b": 25 } ],
+  "playground": {
+    "layout": [ { "ref": "P1", "x": 40, "y": 60, "w": 100, "h": 220 } ],
+    "state_bits": { "P1": 0, "QS1": 7 },
+    "rpm": { "KS1": 1300 },
+    "elapsed_ms": { "KT1": 0 }
+  }
+}
+```
+
+- 顶层 `strict_reference` / `config` / `devices[]` / `wires[]` 与 `pcx.js` 入参**同名字段、同一映射**（`solve.js` 的 `toNetlist`，`api.md` §7），可直接 `pcx.solve(json)`；**同一个 JSON 再喂回去必须得到同一份求解结果**。
+- `playground` 只是复现辅助字段，不参与求解；内核 JSON 门面忽略未知顶层键，因此整个导出对象可直接喂 `pcx.js`，**不得把辅助字段混进 `devices[]` / `wires[]`**。
+- `playground.layout`：每台器件的 `ref` / `x` / `y` / `w` / `h`，与 `samples/C*.json` 的 layout 同形（§4.1）。
+- `playground.state_bits` / `rpm` / `elapsed_ms`：按 `ref` 汇总当前操作状态，缺省 `0`，与 `devices[]` 里的同名字段一致。
+- `state.result` 缺失（页面尚未成功求解）时按钮只在顶部红条提示「尚未求解」，**不导出半成品**；求解失败保留上一次成功结果时，导出的是当前画布与上一次成功结果对应的网表。
+- 交互顺序：先 `navigator.clipboard.writeText` 复制；不可用或被拒绝时回退 `<a download>` 下载 `pcx-netlist-<时间戳>.json`；两者都失败时用顶部红条提示，不静默失败。成功时页面提示条给出「已复制 / 已下载」。
+- **把导出的 JSON 贴进 issue**：复现问题时点「导出网表 JSON」，把 JSON 原文贴进 issue 的代码块（或作为文件附件）；复现者用 `bindings/web/pcx.js` 的 `createPcx(...).solve(json)` 即可得到与页面同一份结果。JSON 里只有网表与操作状态，**不含求解结果绝对值**，结果由同一份网表重新求解。
+
 ## 6 显示分层
 
 ### 6.1 画布上
@@ -344,7 +371,7 @@ state 是纯数据：`{ mode, devices[], wires[], selected, selectedWire, pendin
 
 | 区域 | 内容 |
 |---|---|
-| 工具栏 | 样例下拉（C1…C10 ＋「白画布」）、删除选中、`清空全部导线`（先确认）、`重置`、严格模式开关 |
+| 工具栏 | 样例下拉（C1…C10 ＋「白画布」）、删除选中、`清空全部导线`（先确认）、`重置`、严格模式开关、`导出网表 JSON`（§5.5） |
 | 顶部摘要 | `案例名 ｜ 器件 N ｜ 接点 N ｜ 导线 N ｜ 诊断 N` |
 | 接点表 | 按器件分组、可滚动，行 = 接点：位号 / 接点 / `V` / `I` / 等势点 / 连通分量 / 状态（读最近一次 `result.closed_bits`；触点闭合 / 断开，未求解时标注「未求解」；`HAS_I = 0` 显示 `—`） |
 | 导线清单 | 序号 / from / to / 电流；新加的在最上并高亮，点行在画布上高亮对应导线 |

@@ -350,6 +350,7 @@
       <button id="deleteBtn" type="button" disabled>删除选中</button>
       <button id="clearWiresBtn" type="button">清空全部导线</button>
       <button id="resetBtn" type="button">重置（当前样例 / 白画布）</button>
+      <button id="exportBtn" type="button">导出网表 JSON</button>
     </div>
     <p id="notice" hidden></p>
 
@@ -399,7 +400,7 @@ import {
   terminalLabel,
   totalTerminalCount,
 } from "./state.js";
-import { solveState } from "./solve.js";
+import { exportNetlist, solveState } from "./solve.js";
 import {
   contactStates as contactStatesFor,
   contactSummary as summarizeContacts,
@@ -437,6 +438,7 @@ const strictToggle = $("strictToggle");
 const deleteBtn = $("deleteBtn");
 const clearWiresBtn = $("clearWiresBtn");
 const resetBtn = $("resetBtn");
+const exportBtn = $("exportBtn");
 const noticeEl = $("notice");
 const wireBody = $("wireBody");
 const wireCount = $("wireCount");
@@ -508,6 +510,7 @@ function setPaletteEnabled(enabled) {
   }
   clearWiresBtn.disabled = !enabled;
   resetBtn.disabled = !enabled;
+  exportBtn.disabled = !enabled;
   sampleSelect.disabled = !enabled;
   strictToggle.disabled = !enabled;
 }
@@ -1264,6 +1267,8 @@ async function boot() {
   try {
     pcx = await loadPcx(WASM_URL);
     verifyCatalog();
+    // 载入期间点导出会提示「尚未求解」；solve 完成后这条临时错误不应继续挂着。
+    actionError = null;
     state = solveState(state, pcx);
   } catch (error) {
     bootError = `${BUILD_HINT}\n\n错误：${error?.message ?? error}`;
@@ -1287,6 +1292,71 @@ function releaseHeld() {
   if (ref) dispatch({ type: "operate", ref, action: "release" });
 }
 
+// ── 导出网表 JSON（docs/playground.md §5.5） ──────────────────────────────
+function exportFileName(now = new Date()) {
+  const pad = (value) => String(value).padStart(2, "0");
+  const stamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}`
+    + `-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+  return `pcx-netlist-${stamp}.json`;
+}
+
+function downloadJson(text, filename) {
+  if (typeof URL === "undefined" || typeof URL.createObjectURL !== "function") {
+    throw new Error("浏览器不支持 URL.createObjectURL");
+  }
+  const blob = new Blob([text], { type: "application/json;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  try {
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = filename;
+    anchor.hidden = true;
+    document.body.append(anchor);
+    anchor.click();
+    anchor.remove();
+  } finally {
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+  }
+}
+
+function exportNotice(message) {
+  state = { ...state, notice: message, noticeLevel: "info" };
+}
+
+async function exportCurrentNetlist() {
+  let text;
+  try {
+    // 顶层字段与求解入参完全一致；未求解时 exportNetlist 直接拒绝，避免半成品。
+    text = `${JSON.stringify(exportNetlist(state), null, 2)}\n`;
+  } catch (error) {
+    actionError = error?.message ?? String(error);
+    render();
+    return;
+  }
+
+  const filename = exportFileName();
+  let clipboardError = null;
+  try {
+    if (!navigator.clipboard || typeof navigator.clipboard.writeText !== "function") {
+      throw new Error("浏览器未提供 navigator.clipboard");
+    }
+    await navigator.clipboard.writeText(text);
+    actionError = null;
+    exportNotice(`已复制网表 JSON（${state.devices.length} 器件 / ${state.wires.length} 导线）到剪贴板`);
+  } catch (error) {
+    clipboardError = error;
+    try {
+      downloadJson(text, filename);
+      actionError = null;
+      exportNotice(`剪贴板不可用，已下载 ${filename}`);
+    } catch (downloadError) {
+      actionError = `导出失败：剪贴板不可用（${clipboardError?.message ?? clipboardError}），`
+        + `下载也失败（${downloadError?.message ?? downloadError}）`;
+    }
+  }
+  render();
+}
+
 function deleteSelected() {
   if (Number.isInteger(state.selectedWire)) {
     dispatch({ type: "removeWire", index: state.selectedWire });
@@ -1306,6 +1376,7 @@ clearWiresBtn.addEventListener("click", () => {
   dispatch({ type: "clearWires" });
 });
 resetBtn.addEventListener("click", () => dispatch({ type: "reset" }));
+exportBtn.addEventListener("click", exportCurrentNetlist);
 
 window.addEventListener("pointerup", releaseHeld);
 window.addEventListener("mouseup", releaseHeld);

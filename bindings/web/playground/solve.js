@@ -44,6 +44,38 @@ export function toNetlist(state) {
   };
 }
 
+/**
+ * state → 可复现的导出 JSON（docs/playground.md §5.5）。
+ *
+ * 顶层就是 `toNetlist` 的 pcx.js 入参，原样可喂 `pcx.solve`；器件坐标与操作状态
+ * 只放在 `playground` 键下，不污染入参。尚未求解时拒绝导出，避免半成品。
+ */
+export function exportNetlist(state) {
+  if (!state?.result) {
+    throw new Error("尚未求解：页面还没有成功求解结果，不能导出网表 JSON。");
+  }
+  const devices = state.devices ?? [];
+  const byRef = (field) => Object.fromEntries(
+    devices.map((device) => [device.ref, device[field] ?? 0]),
+  );
+
+  return {
+    ...toNetlist(state),
+    playground: {
+      layout: devices.map((device) => ({
+        ref: device.ref,
+        x: device.x,
+        y: device.y,
+        w: device.w,
+        h: device.h,
+      })),
+      state_bits: byRef("state_bits"),
+      rpm: byRef("rpm"),
+      elapsed_ms: byRef("elapsed_ms"),
+    },
+  };
+}
+
 /** 求解成功后把库自解器件的 closed_bits 写成下一轮的 state_bits 提示（D-20261103-29）。 */
 export function writeBackClosedBits(devices, deviceResults) {
   const byId = new Map((deviceResults ?? []).map((result) => [result.id, result]));
