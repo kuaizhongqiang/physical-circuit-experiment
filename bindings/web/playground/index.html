@@ -178,6 +178,7 @@
   }
   .term-table td.closed { color: var(--ok); }
   .term-table td.open { color: var(--muted); }
+  .term-table td.unsolved { color: #ef6c00; }
   .actions { display: grid; gap: 6px; margin-top: 10px; }
   .actions button, .op-row button, .mini-btn {
     padding: 7px 9px;
@@ -282,6 +283,7 @@
   .ro-note { margin: 4px 0 0; color: #b0bec5; font-size: 9px; line-height: 1.5; }
   .status-line { color: #37474f; font-size: 10px; line-height: 1.55; }
   .status-line b { color: #1565c0; font-weight: 600; }
+  .status-line b.unsolved { color: #ef6c00; }
   footer {
     flex: none;
     max-height: 74px;
@@ -386,7 +388,6 @@ import {
   KIND_ORDER,
   paramsFor,
   readonlyFor,
-  stateBitsFor,
   terminalCount,
   terminalsFor,
 } from "./device-catalog.js";
@@ -399,6 +400,11 @@ import {
   totalTerminalCount,
 } from "./state.js";
 import { solveState } from "./solve.js";
+import {
+  contactStates as contactStatesFor,
+  contactSummary as summarizeContacts,
+  UNSOLVED_LABEL,
+} from "./contact-state.js";
 import { SAMPLE_NAMES, loadSample } from "./samples.js";
 import { createCanvasView } from "./canvas.js";
 import { diagLevelClass, diagLevelText, diagText, sortDiags } from "./diag-text.js";
@@ -708,18 +714,8 @@ function buildField(device, definition) {
 }
 
 function contactSummary(device) {
-  const bits = stateBitsFor(device.kind, device.aux);
-  if (bits.length === 0) return "无可变触点";
-  const selectedBits = device.state_bits ?? 0;
-  let filtered = bits;
-  if (device.kind === "SB" || device.kind === "SQ") {
-    const type = device.aux ?? 0;
-    filtered = bits.filter((bit) => (type === 1 ? bit.bit === 0 : type === 2 ? bit.bit === 1 : true));
-  }
-  return filtered.map((bit) => {
-    const closed = (selectedBits & (1 << bit.bit)) !== 0;
-    return `${bit.terminals.join("-")} ${closed ? "闭合" : "断开"}`;
-  }).join(" · ");
+  // 触点状态一律读最近一次 result.closed_bits；只有尚未求解时才回退提示值（issue #61）。
+  return summarizeContacts(device, state.result);
 }
 
 function resultForDevice(device) {
@@ -853,6 +849,10 @@ function statusBlock(device) {
   contact.append("触点：");
   const contactValue = document.createElement("b");
   contactValue.textContent = contactSummary(device);
+  if (!contactStatesFor(device, state.result).solved) {
+    contactValue.className = "unsolved";
+    contactValue.title = "尚未求解：显示 device.state_bits 提示值";
+  }
   contact.append(contactValue);
   line.append(contact);
 
@@ -943,12 +943,13 @@ function updateProperty(device) {
 }
 
 // ── 接点表（§6.2） ──────────────────────────────────────────────────────────
-function contactBitMap(device) {
-  const map = new Map();
-  for (const bit of stateBitsFor(device.kind, device.aux)) {
-    for (const name of bit.terminals) map.set(name, bit.bit);
+function contactStateMap(device) {
+  const states = contactStatesFor(device, state.result);
+  const byTerminal = new Map();
+  for (const contact of states.contacts) {
+    for (const name of contact.terminals) byTerminal.set(name, contact);
   }
-  return map;
+  return { ...states, byTerminal };
 }
 
 function updateTerminalTable() {
@@ -967,7 +968,7 @@ function updateTerminalTable() {
     group.append(groupCell);
     rows.push(group);
 
-    const bitMap = contactBitMap(device);
+    const contactState = contactStateMap(device);
     for (const terminal of terminals) {
       const terminalId = device.terminal_base + terminal.index;
       const result = byId.get(terminalId);
@@ -1000,14 +1001,18 @@ function updateTerminalTable() {
       compCell.textContent = result ? `${result.comp}（${result.comp_size}）` : "—";
       tr.append(compCell);
 
-      const bit = bitMap.get(terminal.name);
+      const contact = contactState.byTerminal.get(terminal.name);
       const stateCell = document.createElement("td");
-      if (bit === undefined) {
+      if (!contact) {
         stateCell.textContent = "—";
+      } else if (contactState.solved) {
+        stateCell.textContent = contact.closed ? "闭合" : "断开";
+        stateCell.className = contact.closed ? "closed" : "open";
       } else {
-        const closed = ((device.state_bits ?? 0) & (1 << bit)) !== 0;
-        stateCell.textContent = closed ? "闭合" : "断开";
-        stateCell.className = closed ? "closed" : "open";
+        // 尚未求解：回退提示值，并明确标出不是求解结果（issue #61）。
+        stateCell.textContent = `${UNSOLVED_LABEL}·${contact.closed ? "闭合" : "断开"}`;
+        stateCell.className = "unsolved";
+        stateCell.title = "尚未求解：显示 device.state_bits 提示值";
       }
       tr.append(stateCell);
       rows.push(tr);

@@ -15,6 +15,7 @@ import {
   defaultAux,
   defaultBox,
   defaultStateBits,
+  isOperable,
   paramsFor,
   terminalCount,
   terminalsFor,
@@ -455,7 +456,9 @@ function operateEvent(state, event) {
   const device = resolveDevice(state, event);
   if (!device) return state;
   if (device.kind === "KS") return operateKs(state, device, event.action, event.value);
-  if (!["SB", "SQ", "QS"].includes(device.kind)) return state;
+  // 只有 QS / SB / SQ 可人工操作；其余 kind（KM / KA / KT / FR / FU / M / R / EL / TB / PE /
+  // POWER）的 state_bits 只来自内核，任何点击 / 事件都不得改动（docs/playground.md §5.4）。
+  if (!isOperable(device.kind)) return state;
 
   const action = event.action;
   let bits = device.state_bits ?? 0;

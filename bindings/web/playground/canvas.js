@@ -12,7 +12,7 @@
 //
 // 本文件不做状态转换：接线 / 删线 / 选中都通过 onEvent 交给 state.js 的 reducer。
 
-import { CATALOG, terminalCount } from "./device-catalog.js";
+import { CATALOG, isOperable, terminalCount } from "./device-catalog.js";
 import {
   edgeNormal,
   labelPoint,
@@ -201,7 +201,7 @@ export function createCanvasView(canvas, handlers = {}) {
       return;
     }
     const device = hitDevice(point);
-    if (device && ["SB", "SQ", "QS"].includes(device.kind)) {
+    if (device && isOperable(device.kind)) {
       canvas.style.cursor = "pointer";
       return;
     }
@@ -322,6 +322,8 @@ export function createCanvasView(canvas, handlers = {}) {
       // 保持型：没拖动的一次点击 = 通断翻转（§5.4）。
       emit({ type: "operate", ref: finished.ref, action: "toggle" });
     }
+    // 其余 kind（KM / KA / KT / FR / FU / M / R / EL / TB / PE / POWER）的一次点击只选中，
+    // 不发 operate、不改 state_bits：它们不可人工操作（docs/playground.md §5.4）。
   }
 
   canvas.addEventListener("pointerdown", onPointerDown);
