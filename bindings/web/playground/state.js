@@ -19,7 +19,7 @@ import {
   terminalCount,
   terminalsFor,
 } from "./device-catalog.js";
-import { allocIds, moveDevice, placeDevice, removeDevice } from "./model.js";
+import { adoptDevices, allocIds, moveDevice, placeDevice, removeDevice } from "./model.js";
 
 /** 逻辑画布尺寸（docs/playground.md §3.1）。 */
 export const CANVAS = Object.freeze({ w: 1600, h: 1000 });
@@ -55,6 +55,10 @@ export function createInitialState(overrides = {}) {
     pendingTerminal: null,
     drag: null,
     sample: null,
+    sampleData: null,
+    sampleNote: null,
+    fixtureStrictReference: false,
+    config: {},
     result: null,
     diags: [],
     strictReference: false,
@@ -554,6 +558,22 @@ function clearWiresEvent(state) {
   return commit({ ...state, wires: [] }, { notice: "已清空全部导线" });
 }
 
+// 样例器件：fixtures 已给出幂等的 id / terminal_base 时原样采用（samples.js 保证）；
+// 只有显式 devices 没带 id 的旧路径才按放置顺序重新分配。
+function buildSampleDevices(rawDevices) {
+  const list = rawDevices ?? [];
+  const explicit = list.length > 0 && list.every(
+    (device) => Number.isInteger(device?.id) && Number.isInteger(device?.terminal_base),
+  );
+  if (explicit) return adoptDevices(list);
+
+  let devices = [];
+  for (const rawDevice of list) {
+    devices = placeDevice({ devices, wires: [] }, rawDevice).devices;
+  }
+  return devices;
+}
+
 function buildSampleState(event) {
   const name = event.sample ?? null;
   const strictReference = event.strictReference === true;
@@ -561,10 +581,10 @@ function buildSampleState(event) {
     return createInitialState({ strictReference, sample: null });
   }
 
-  let devices = [];
-  for (const rawDevice of event.devices ?? []) {
-    devices = placeDevice({ devices, wires: [] }, rawDevice).devices;
-  }
+  const devices = buildSampleDevices(event.devices);
+  const config = clonePlain(event.config ?? {});
+  const note = event.note ?? null;
+  const fixtureStrictReference = event.fixtureStrictReference === true;
 
   const terminalTotal = totalTerminalCount(devices);
   const wires = [];
@@ -578,11 +598,17 @@ function buildSampleState(event) {
   return createInitialState({
     devices,
     wires,
+    config,
     sample: name,
+    sampleNote: note,
+    fixtureStrictReference,
     strictReference,
     sampleData: {
       devices: clonePlain(event.devices ?? []),
       wires: clonePlain(event.wires ?? []),
+      config: clonePlain(config),
+      note,
+      fixtureStrictReference,
     },
   });
 }
@@ -607,6 +633,9 @@ function resetEvent(state) {
       sample: state.sample,
       devices: state.sampleData.devices,
       wires: state.sampleData.wires,
+      config: state.sampleData.config,
+      note: state.sampleData.note,
+      fixtureStrictReference: state.sampleData.fixtureStrictReference,
       strictReference: state.strictReference,
     });
   }

@@ -3,7 +3,7 @@
 读者：AI / 负责人
 类型：台账
 权威：**待办与待拍板项的唯一清单**
-状态：2026-11-04 更新 — M0–M5 已完成；**M6 网页实验台进行中**，剩余切片见 §2；§1 无待拍板
+状态：2026-11-05 更新 — M0–M5 已完成；**M6 网页实验台进行中**，剩余切片见 §2；§1 无待拍板
 依赖：`AGENT.md`（纪律）、`docs/README.md`（文档地图）、`docs/roadmap.md`（里程碑与门禁，§7 为 M6）、`DECISION.md`（已定口径）
 
 ## 0 用法
@@ -21,7 +21,6 @@
 
 M6 网页电路实验台按切片串行推进（一片一 PR，顺序与门禁见 `docs/roadmap.md` §7、契约见 `docs/playground.md`）：
 
-- **T-18**（M6.4 / #42）C1…C10 十样例与切换：`samples/C*.json`（layout ＋ 操作状态）＋ `samples.js` ＋ `scripts/playground-check.mjs` 首版。
 - **T-19**（M6.5 / #43）参数编辑与操作面板：可编辑参数子集、器件操作、C9 转速滑块。
 - **T-20**（M6.6 / #44）自检脚本、页面自检页与 CI：`scripts/lib/fixture-compare.mjs`、完整 `playground-check.mjs`、`selftest.html`、CI `wasm` job 加一步。
 - **T-21**（M6.7 / #45）Tailscale 部署与浏览器验收：`scripts/serve.mjs` 可选 `--host`、`docs/playground.md` §9 / §10 回填。

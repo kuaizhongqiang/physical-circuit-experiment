@@ -173,6 +173,27 @@
   #deleteBtn:not(:disabled) { color: var(--danger); border-color: #ef9a9a; background: #fff8f8; }
   .hint { margin: 10px 0 0; color: var(--muted); font-size: 11px; line-height: 1.6; }
   #notice { margin: 8px 0 0; padding: 5px 7px; border-radius: 5px; background: #fff8e1; color: #8d6e00; font-size: 11px; }
+  .sample-picker { display: grid; gap: 5px; font-size: 11px; color: var(--muted); }
+  .sample-picker select {
+    width: 100%;
+    padding: 6px 7px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: #fafbfc;
+    color: var(--ink);
+    font: inherit;
+  }
+  .sample-note { margin: 8px 0 0; color: #37474f; font-size: 11px; line-height: 1.55; }
+  .scope-note {
+    margin: 8px 0 12px;
+    padding: 6px 8px;
+    border-left: 3px solid var(--accent);
+    border-radius: 4px;
+    background: #f1f8ff;
+    color: #455a64;
+    font-size: 10px;
+    line-height: 1.55;
+  }
   footer {
     flex: none;
     min-height: 32px;
@@ -196,8 +217,8 @@
 <body>
 <header>
   <div>
-    <h1>电路实验台 <span>M6.3 接线交互与导线渲染</span></h1>
-    <p>白画布 · 点接点 A 再点接点 B 接线 · 本期只算电气量 · 编辑中间态默认宽松模式</p>
+    <h1>电路实验台 <span>M6.4 样例与切换</span></h1>
+    <p>白画布 · 样例下拉加载 C1…C10 · 点接点 A 再点接点 B 接线 · 本期只算电气量 · 编辑中间态默认宽松模式</p>
   </div>
   <div id="statusbar">器件 0 ｜ 接点 0 ｜ 导线 0 ｜ 诊断 0</div>
 </header>
@@ -216,12 +237,19 @@
   </section>
 
   <aside class="panel">
+    <h2>样例</h2>
+    <label class="sample-picker">选择样例
+      <select id="sampleSelect"></select>
+    </label>
+    <p id="sampleNote" class="sample-note" hidden></p>
+    <p class="scope-note">本期只算电气量（不输出转速 / 转矩）。C7 / C8 / C9 适用；C8 制动电流恒 0 属已声明设计（<code>docs/verification.md</code> §5）。</p>
+
     <h2>选中器件 / 导线</h2>
     <div id="selectedInfo">未选中</div>
     <div class="actions">
       <button id="deleteBtn" type="button" disabled>删除选中</button>
       <button id="clearWiresBtn" type="button">清空全部导线</button>
-      <button id="resetBtn" type="button">重置白画布</button>
+      <button id="resetBtn" type="button">重置（当前样例 / 白画布）</button>
     </div>
     <p id="notice" hidden></p>
 
@@ -251,6 +279,7 @@ import {
   totalTerminalCount,
 } from "./state.js";
 import { solveState } from "./solve.js";
+import { SAMPLE_NAMES, loadSample } from "./samples.js";
 import { createCanvasView, diagLevelText, diagText } from "./canvas.js";
 
 const WASM_URL = "../pkg/pcx_circuit.wasm";
@@ -266,6 +295,8 @@ const banner = $("banner");
 const statusbar = $("statusbar");
 const paletteGrid = $("paletteGrid");
 const selectedInfo = $("selectedInfo");
+const sampleSelect = $("sampleSelect");
+const sampleNote = $("sampleNote");
 const deleteBtn = $("deleteBtn");
 const clearWiresBtn = $("clearWiresBtn");
 const resetBtn = $("resetBtn");
@@ -315,6 +346,7 @@ function setPaletteEnabled(enabled) {
   }
   clearWiresBtn.disabled = !enabled;
   resetBtn.disabled = !enabled;
+  sampleSelect.disabled = !enabled;
 }
 
 function updateBanner() {
@@ -341,6 +373,49 @@ function showNotice() {
   const message = state.paramError?.message ?? state.notice;
   noticeEl.hidden = !message;
   noticeEl.textContent = message ?? "";
+}
+
+function buildSamplePicker() {
+  const white = document.createElement("option");
+  white.value = "";
+  white.textContent = "白画布（空网表）";
+  sampleSelect.append(white);
+  for (const name of SAMPLE_NAMES) {
+    const option = document.createElement("option");
+    option.value = name;
+    option.textContent = `${name} 样例`;
+    sampleSelect.append(option);
+  }
+}
+
+function updateSampleNote() {
+  const note = state.sampleNote ?? "";
+  sampleNote.hidden = note === "";
+  sampleNote.textContent = note;
+  const selected = state.sample ?? "";
+  if (sampleSelect.value !== selected) sampleSelect.value = selected;
+}
+
+// 样例入口：读 sample → 读 fixture → 套 initial / layout → reducer.loadSample（§4.2）。
+// 加载失败（fixture 缺失 / layout 缺 ref / 未知 ref）走红条，不改变当前画布。
+async function chooseSample(name) {
+  if (name === "") {
+    dispatch({ type: "clear" });
+    return;
+  }
+  sampleSelect.disabled = true;
+  try {
+    actionError = null;
+    const event = await loadSample(name);
+    dispatch(event);
+  } catch (error) {
+    actionError = error?.message ?? String(error);
+    console.error(error);
+    render();
+  } finally {
+    sampleSelect.disabled = Boolean(bootError);
+    updateSampleNote();
+  }
 }
 
 function updateSelected() {
@@ -455,6 +530,7 @@ function updateDiags() {
 function render() {
   view?.render(state);
   updateStatus();
+  updateSampleNote();
   updateSelected();
   updateWires();
   updateDiags();
@@ -516,6 +592,7 @@ function verifyCatalog() {
 
 async function boot() {
   buildPalette();
+  buildSamplePicker();
   view = createCanvasView(board, {
     onEvent: dispatch,
     onError: (error) => {
@@ -547,6 +624,7 @@ function deleteSelected() {
 }
 
 deleteBtn.addEventListener("click", deleteSelected);
+sampleSelect.addEventListener("change", () => chooseSample(sampleSelect.value));
 clearWiresBtn.addEventListener("click", () => {
   if (state.wires.length === 0) return;
   if (!confirm(`清空全部 ${state.wires.length} 条导线？之后可以逐条重接。`)) return;

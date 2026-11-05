@@ -57,6 +57,30 @@ export function allocIds(devices) {
   });
 }
 
+/**
+ * 采用已有 id / terminal_base 的器件（样例来自 fixtures/C*.json）。
+ *
+ * 与 placeDevice 的区别：**不重排 id / terminal_base**，只补缺省元数据（aux / params /
+ * state_bits / flags / w / h），并校验 id 从 1 连续、terminal_base 等于前面器件接点数的
+ * 前缀和 —— 否则 fixture 导线端点会错位（docs/playground.md §4.2）。
+ */
+export function adoptDevices(devices = []) {
+  let terminalBase = 0;
+  return devices.map((raw, index) => {
+    const device = normalizeDevice(raw);
+    if (device.id !== index + 1) {
+      throw new RangeError(`器件 ${device.ref ?? index} 的 id 应为 ${index + 1}，实际 ${device.id}`);
+    }
+    if (device.terminal_base !== terminalBase) {
+      throw new RangeError(
+        `器件 ${device.ref ?? index} 的 terminal_base 应为 ${terminalBase}，实际 ${device.terminal_base}`,
+      );
+    }
+    terminalBase += terminalCount(device.kind, device.aux);
+    return device;
+  });
+}
+
 /** 追加一台器件；缺省 aux / params / state_bits / flags / w / h 由 catalog 补齐。 */
 export function placeDevice(state = {}, device) {
   const devices = state.devices ?? [];

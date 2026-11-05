@@ -4,7 +4,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { defaultParams, terminalsFor } from "../device-catalog.js";
-import { allocIds, moveDevice, placeDevice, removeDevice } from "../model.js";
+import { adoptDevices, allocIds, moveDevice, placeDevice, removeDevice } from "../model.js";
 
 const pairs = (devices) => devices.map((device) => [device.id, device.terminal_base]);
 
@@ -248,4 +248,27 @@ test("removeDevice 对 TB 可变接点数先删线再整体重排", () => {
 test("removeDevice 未知 id 幂等返回原 state", () => {
   const state = { devices: baseDevices(), wires: [] };
   assert.equal(removeDevice(state, 999), state);
+});
+
+test("adoptDevices 保留 fixture 的 id / terminal_base，只补缺省元数据", () => {
+  const devices = adoptDevices([
+    { ref: "P1", kind: "POWER", id: 1, terminal_base: 0 },
+    { ref: "PE1", kind: "PE", id: 2, terminal_base: 4 },
+  ]);
+  assert.deepEqual(pairs(devices), [[1, 0], [2, 4]]);
+  assert.deepEqual(devices[1].params, [0, 0, 0, 0, 0, 0, 0, 0]);
+
+  assert.throws(
+    () => adoptDevices([
+      { ref: "P1", kind: "POWER", id: 2, terminal_base: 0 },
+      { ref: "PE1", kind: "PE", id: 1, terminal_base: 4 },
+    ]),
+    /id 应为 1/,
+  );
+  assert.throws(
+    () => adoptDevices([
+      { ref: "P1", kind: "POWER", id: 1, terminal_base: 1 },
+    ]),
+    /terminal_base 应为 0/,
+  );
 });
