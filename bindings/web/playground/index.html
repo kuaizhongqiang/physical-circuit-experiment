@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>电路实验台（M6.3 接线与导线）</title>
+<title>电路实验台（M6.5 参数与操作）</title>
 <style>
   :root {
     --ink: #263238;
@@ -15,6 +15,7 @@
     --danger: #c62828;
     --warn: #ef6c00;
     --ok: #2e7d32;
+    --info: #0277bd;
   }
   * { box-sizing: border-box; }
   html, body { height: 100%; }
@@ -63,7 +64,7 @@
   }
   main {
     display: grid;
-    grid-template-columns: 208px minmax(0, 1fr) 300px;
+    grid-template-columns: 208px minmax(0, 1fr) 360px;
     gap: 10px;
     padding: 10px 16px;
     min-height: 0;
@@ -78,6 +79,7 @@
     overflow: auto;
   }
   .panel h2 { margin: 0 0 8px; font-size: 12px; color: var(--muted); letter-spacing: .08em; }
+  .panel h2:not(:first-child) { margin-top: 14px; }
   .palette-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
   .palette-btn {
     display: flex;
@@ -120,24 +122,24 @@
     user-select: none;
     cursor: default;
   }
-  #selectedInfo { min-height: 52px; }
+  #selectedInfo { min-height: 40px; }
   .sel-ref { font-size: 14px; font-weight: 700; }
   .sel-meta { margin-top: 4px; color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
-  .wire-heading { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; }
-  .wire-heading span { color: var(--muted); font-weight: 500; }
+  .wire-heading { display: flex; align-items: center; justify-content: space-between; }
+  .wire-heading span, .term-heading span { color: var(--muted); font-weight: 500; }
   .wire-wrap {
-    max-height: 42vh;
+    max-height: 30vh;
     overflow: auto;
     border: 1px solid var(--line);
     border-radius: 6px;
   }
-  .wire-table {
+  .wire-table, .term-table {
     width: 100%;
     border-collapse: collapse;
     font-size: 10px;
     font-variant-numeric: tabular-nums;
   }
-  .wire-table th {
+  .wire-table th, .term-table th {
     position: sticky;
     top: 0;
     padding: 4px;
@@ -148,19 +150,36 @@
     text-align: left;
     white-space: nowrap;
   }
-  .wire-table td {
+  .wire-table td, .term-table td {
     padding: 3px 4px;
     border-bottom: 1px solid #eceff1;
     white-space: nowrap;
   }
-  .wire-table tbody tr { cursor: pointer; }
+  .wire-table tbody tr, .term-table tbody tr.term-row { cursor: default; }
   .wire-table tbody tr:hover { background: #f1f8ff; }
   .wire-table tbody tr.selected { background: #e3f2fd; }
   .wire-table tbody tr.new { background: #fff1f0; color: #b71c1c; font-weight: 600; }
   .wire-table tbody tr.wire-empty { cursor: default; color: var(--muted); }
   .wire-table tbody tr.wire-empty:hover { background: transparent; }
+  .term-wrap {
+    max-height: 34vh;
+    overflow: auto;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+  }
+  .term-table { font-size: 9.5px; }
+  .term-table td.num { text-align: right; }
+  .term-table tr.term-group td {
+    padding: 4px;
+    background: #eef5fb;
+    color: #1565c0;
+    font-weight: 700;
+    border-bottom: 1px solid #d6e4f0;
+  }
+  .term-table td.closed { color: var(--ok); }
+  .term-table td.open { color: var(--muted); }
   .actions { display: grid; gap: 6px; margin-top: 10px; }
-  .actions button {
+  .actions button, .op-row button, .mini-btn {
     padding: 7px 9px;
     border: 1px solid var(--line);
     border-radius: 6px;
@@ -168,8 +187,8 @@
     font: inherit;
     cursor: pointer;
   }
-  .actions button:hover:not(:disabled) { border-color: var(--accent); }
-  .actions button:disabled { opacity: .45; cursor: not-allowed; }
+  .actions button:hover:not(:disabled), .op-row button:hover:not(:disabled), .mini-btn:hover:not(:disabled) { border-color: var(--accent); }
+  .actions button:disabled, .op-row button:disabled, .mini-btn:disabled { opacity: .45; cursor: not-allowed; }
   #deleteBtn:not(:disabled) { color: var(--danger); border-color: #ef9a9a; background: #fff8f8; }
   .hint { margin: 10px 0 0; color: var(--muted); font-size: 11px; line-height: 1.6; }
   #notice { margin: 8px 0 0; padding: 5px 7px; border-radius: 5px; background: #fff8e1; color: #8d6e00; font-size: 11px; }
@@ -183,6 +202,15 @@
     color: var(--ink);
     font: inherit;
   }
+  .strict-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+    color: #455a64;
+    font-size: 11px;
+    cursor: pointer;
+  }
   .sample-note { margin: 8px 0 0; color: #37474f; font-size: 11px; line-height: 1.55; }
   .scope-note {
     margin: 8px 0 12px;
@@ -194,21 +222,90 @@
     font-size: 10px;
     line-height: 1.55;
   }
+  /* ── 属性面板 ─────────────────────────────────────────────────────────── */
+  .property-panel { display: grid; gap: 5px; }
+  .prop-head { font-size: 13px; font-weight: 700; }
+  .prop-sub { color: var(--muted); font-size: 10px; margin-bottom: 4px; }
+  .prop-title {
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px dashed var(--line);
+    color: var(--muted);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .06em;
+  }
+  .field {
+    display: grid;
+    grid-template-columns: 96px minmax(0, 1fr);
+    gap: 4px;
+    align-items: center;
+  }
+  .field label { color: #455a64; font-size: 11px; }
+  .control { display: flex; align-items: center; gap: 5px; min-width: 0; }
+  .control input, .control select {
+    width: 100%;
+    min-width: 0;
+    padding: 4px 6px;
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    background: #fff;
+    color: var(--ink);
+    font: inherit;
+    font-size: 11px;
+  }
+  .control .unit { flex: none; color: var(--muted); font-size: 10px; }
+  .field input.invalid, .field select.invalid { border-color: var(--danger); background: #fff8f8; }
+  .field-error { grid-column: 2 / -1; color: var(--danger); font-size: 10px; }
+  .field-hint { grid-column: 2 / -1; color: #90a4ae; font-size: 10px; }
+  .op-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 4px 0 2px; }
+  .op-row button { padding: 5px 8px; font-size: 11px; }
+  .op-row input {
+    width: 82px;
+    padding: 4px 6px;
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    background: #fff;
+    color: var(--ink);
+    font: inherit;
+    font-size: 11px;
+  }
+  .op-row input.invalid { border-color: var(--danger); background: #fff8f8; }
+  .unit { flex: none; color: var(--muted); font-size: 10px; }
+  .op-note { color: var(--muted); font-size: 10px; line-height: 1.5; }
+  .rpm-row { display: flex; align-items: center; gap: 6px; }
+  .rpm-row input[type="range"] { flex: 1; min-width: 0; padding: 0; border: none; background: transparent; }
+  .rpm-row input[type="number"] { width: 72px; }
+  .rpm-live { color: #1565c0; font-variant-numeric: tabular-nums; font-size: 11px; white-space: nowrap; }
+  .ro-item { display: flex; justify-content: space-between; gap: 6px; color: #90a4ae; font-size: 10px; line-height: 1.5; }
+  .ro-item .source { color: #b0bec5; font-size: 9px; white-space: nowrap; }
+  .ro-note { margin: 4px 0 0; color: #b0bec5; font-size: 9px; line-height: 1.5; }
+  .status-line { color: #37474f; font-size: 10px; line-height: 1.55; }
+  .status-line b { color: #1565c0; font-weight: 600; }
   footer {
     flex: none;
+    max-height: 74px;
     min-height: 32px;
-    padding: 6px 16px;
+    padding: 5px 16px;
     background: var(--panel);
     border-top: 1px solid var(--line);
-    font-size: 12px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    font-size: 11px;
+    overflow: auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    gap: 3px 14px;
   }
+  footer .diag-item { white-space: nowrap; }
+  .diag-item.error { color: var(--danger); }
+  .diag-item.warn { color: var(--warn); }
+  .diag-item.info { color: var(--info); }
+  .diag-item.ok { color: var(--ok); }
+  footer.error { border-top-color: #ef9a9a; background: #fff7f7; }
+  footer.warn { border-top-color: #ffcc80; background: #fffaf2; }
+  footer.info { border-top-color: #90caf9; background: #f7fbff; }
   footer.ok { color: var(--ok); }
-  footer.warn { color: var(--warn); }
-  footer.error { color: var(--danger); }
-  @media (max-width: 900px) {
+  @media (max-width: 1100px) {
     main { grid-template-columns: 1fr; }
     #stage { order: -1; }
   }
@@ -217,8 +314,8 @@
 <body>
 <header>
   <div>
-    <h1>电路实验台 <span>M6.4 样例与切换</span></h1>
-    <p>白画布 · 样例下拉加载 C1…C10 · 点接点 A 再点接点 B 接线 · 本期只算电气量 · 编辑中间态默认宽松模式</p>
+    <h1>电路实验台 <span>M6.5 参数与操作</span></h1>
+    <p>白画布 · 样例 C1…C10 · 属性面板改参数 · 按钮 / 旋钮 / 转速操作 · 本期只算电气量 · 编辑中间态默认宽松模式</p>
   </div>
   <div id="statusbar">器件 0 ｜ 接点 0 ｜ 导线 0 ｜ 诊断 0</div>
 </header>
@@ -242,6 +339,7 @@
       <select id="sampleSelect"></select>
     </label>
     <p id="sampleNote" class="sample-note" hidden></p>
+    <label class="strict-toggle"><input type="checkbox" id="strictToggle"> 严格模式（缺接地参考点即报错）</label>
     <p class="scope-note">本期只算电气量（不输出转速 / 转矩）。C7 / C8 / C9 适用；C8 制动电流恒 0 属已声明设计（<code>docs/verification.md</code> §5）。</p>
 
     <h2>选中器件 / 导线</h2>
@@ -252,6 +350,19 @@
       <button id="resetBtn" type="button">重置（当前样例 / 白画布）</button>
     </div>
     <p id="notice" hidden></p>
+
+    <h2>属性面板</h2>
+    <div id="propertyPanel" class="property-panel">未选中器件</div>
+
+    <h2 class="term-heading">接点表 <span id="termCount">0 个</span></h2>
+    <div class="term-wrap">
+      <table class="term-table">
+        <thead>
+          <tr><th>接点</th><th>V</th><th>I</th><th>等势点</th><th>连通分量</th><th>状态</th></tr>
+        </thead>
+        <tbody id="termBody"></tbody>
+      </table>
+    </div>
 
     <h2 class="wire-heading">导线清单 <span id="wireCount">0</span></h2>
     <div class="wire-wrap">
@@ -266,13 +377,22 @@
   </aside>
 </main>
 
-<footer id="diagbar" class="ok"><span id="diagText">未就绪</span></footer>
+<footer id="diagbar" class="ok"></footer>
 
 <script type="module">
 import { loadPcx } from "../pcx.js";
-import { CATALOG, KIND_ORDER, terminalCount } from "./device-catalog.js";
+import {
+  CATALOG,
+  KIND_ORDER,
+  paramsFor,
+  readonlyFor,
+  stateBitsFor,
+  terminalCount,
+  terminalsFor,
+} from "./device-catalog.js";
 import {
   createInitialState,
+  isCommitEvent,
   reducer,
   selectedDevice,
   terminalLabel,
@@ -280,7 +400,8 @@ import {
 } from "./state.js";
 import { solveState } from "./solve.js";
 import { SAMPLE_NAMES, loadSample } from "./samples.js";
-import { createCanvasView, diagLevelText, diagText } from "./canvas.js";
+import { createCanvasView } from "./canvas.js";
+import { diagLevelClass, diagLevelText, diagText, sortDiags } from "./diag-text.js";
 
 const WASM_URL = "../pkg/pcx_circuit.wasm";
 
@@ -290,21 +411,32 @@ const KIND_NUM = {
   SB: 9, SQ: 10, M: 11, R: 12, EL: 13, TB: 14, PE: 15,
 };
 
+const CLOCK_DT_MS = 10;
+const CLOCK_MAX_CATCHUP_MS = 200;
+// 只有这些提交型事件启动应用侧时钟；加载 / 重置 / 清空会暂停（§5.4）。
+const CLOCK_START_TYPES = new Set([
+  "place", "moveCommit", "remove", "setParam", "operate",
+  "addWire", "completeWire", "removeWire", "clearWires",
+]);
+
 const $ = (id) => document.getElementById(id);
 const banner = $("banner");
 const statusbar = $("statusbar");
 const paletteGrid = $("paletteGrid");
 const selectedInfo = $("selectedInfo");
+const propertyPanel = $("propertyPanel");
 const sampleSelect = $("sampleSelect");
 const sampleNote = $("sampleNote");
+const strictToggle = $("strictToggle");
 const deleteBtn = $("deleteBtn");
 const clearWiresBtn = $("clearWiresBtn");
 const resetBtn = $("resetBtn");
 const noticeEl = $("notice");
 const wireBody = $("wireBody");
 const wireCount = $("wireCount");
+const termBody = $("termBody");
+const termCount = $("termCount");
 const diagbar = $("diagbar");
-const diagTextEl = $("diagText");
 const board = $("board");
 
 let pcx = null;
@@ -315,12 +447,36 @@ let view = null;
 let flashWireIndex = -1;
 let flashWireUntil = 0;
 let flashTimer = null;
+// 属性面板操作按钮“按住”的器件；窗口失焦 / 松开都要复位（§5.4）。
+let holdRef = null;
+// 参数输入框正在编辑时，时钟 tick 不重建属性面板，避免打断输入。
+let forceProperty = false;
+
+// ── 数值格式（docs/demo.md §6） ────────────────────────────────────────────
+function formatVoltage(value) {
+  if (!Number.isFinite(value)) return "—";
+  const abs = Math.abs(value);
+  return abs >= 1 ? `${value.toFixed(1)} V` : `${value.toFixed(3)} V`;
+}
 
 function formatCurrent(value) {
   if (!Number.isFinite(value)) return "—";
-  if (Math.abs(value) >= 1) return `${value.toFixed(2)} A`;
-  if (Math.abs(value) >= 1e-3) return `${(value * 1e3).toFixed(2)} mA`;
+  const abs = Math.abs(value);
+  if (abs >= 1) return `${value.toFixed(2)} A`;
+  if (abs >= 1e-3) return `${(value * 1e3).toFixed(2)} mA`;
   return `${(value * 1e6).toFixed(2)} µA`;
+}
+
+function formatNumber(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return "—";
+  if (Number.isInteger(number)) return String(number);
+  return String(Number(number.toPrecision(6)));
+}
+
+function formatWithUnit(value, unit) {
+  const text = formatNumber(value);
+  return unit ? `${text} ${unit}` : text;
 }
 
 function wireCurrent(wire, byId) {
@@ -347,6 +503,7 @@ function setPaletteEnabled(enabled) {
   clearWiresBtn.disabled = !enabled;
   resetBtn.disabled = !enabled;
   sampleSelect.disabled = !enabled;
+  strictToggle.disabled = !enabled;
 }
 
 function updateBanner() {
@@ -364,13 +521,15 @@ function updateBanner() {
 }
 
 function updateStatus() {
-  const diagCount = (state.diags?.length ?? 0) + (state.solveError && (state.diags?.length ?? 0) === 0 ? 1 : 0);
+  const diagCount = (state.diags?.length ?? 0)
+    + (state.solveError && (state.diags?.length ?? 0) === 0 ? 1 : 0)
+    + (state.paramError ? 1 : 0);
   statusbar.textContent = `器件 ${state.devices.length} ｜ 接点 ${totalTerminalCount(state.devices)} ｜ 导线 ${state.wires.length} ｜ 诊断 ${diagCount}`;
-  statusbar.classList.toggle("bad", Boolean(state.solveError) || Boolean(bootError));
+  statusbar.classList.toggle("bad", Boolean(state.solveError) || Boolean(state.paramError) || Boolean(bootError));
 }
 
 function showNotice() {
-  const message = state.paramError?.message ?? state.notice;
+  const message = state.notice;
   noticeEl.hidden = !message;
   noticeEl.textContent = message ?? "";
 }
@@ -394,6 +553,7 @@ function updateSampleNote() {
   sampleNote.textContent = note;
   const selected = state.sample ?? "";
   if (sampleSelect.value !== selected) sampleSelect.value = selected;
+  strictToggle.checked = state.strictReference === true;
 }
 
 // 样例入口：读 sample → 读 fixture → 套 initial / layout → reducer.loadSample（§4.2）。
@@ -418,6 +578,7 @@ async function chooseSample(name) {
   }
 }
 
+// ── 选中摘要 + 属性面板 ────────────────────────────────────────────────────
 function updateSelected() {
   const wire = Number.isInteger(state.selectedWire) ? state.wires[state.selectedWire] : null;
   if (wire) {
@@ -433,6 +594,7 @@ function updateSelected() {
     selectedInfo.replaceChildren(ref, meta);
     deleteBtn.disabled = Boolean(bootError);
     deleteBtn.textContent = "删除选中导线";
+    updateProperty(null);
     showNotice();
     return;
   }
@@ -442,6 +604,7 @@ function updateSelected() {
   if (!device) {
     selectedInfo.textContent = "未选中";
     deleteBtn.disabled = true;
+    updateProperty(null);
     showNotice();
     return;
   }
@@ -453,7 +616,415 @@ function updateSelected() {
   meta.textContent = `位置 (${Math.round(device.x)}, ${Math.round(device.y)}) · 接点 ${terminalCount(device.kind, device.aux)}`;
   selectedInfo.replaceChildren(ref, meta);
   deleteBtn.disabled = Boolean(bootError);
+  updateProperty(device);
   showNotice();
+}
+
+function currentParamValue(device, definition) {
+  if (definition.target.field === "params") {
+    return device.params?.[definition.target.index] ?? definition.default;
+  }
+  if (definition.target.field === "aux") {
+    const aux = device.aux ?? 0;
+    if (definition.target.part === "aux_no") return Math.floor(aux / 4);
+    if (definition.target.part === "aux_nc") return aux % 4;
+    return aux;
+  }
+  return definition.default;
+}
+
+function paramErrorFor(device, key) {
+  const error = state.paramError;
+  return error && error.ref === device.ref && error.key === key ? error : null;
+}
+
+function buildField(device, definition) {
+  const row = document.createElement("div");
+  row.className = "field";
+  const value = currentParamValue(device, definition);
+  const error = paramErrorFor(device, definition.key);
+  const label = document.createElement("label");
+  label.textContent = definition.label;
+  row.append(label);
+
+  if (definition.control === "select") {
+    const control = document.createElement("div");
+    control.className = "control";
+    const select = document.createElement("select");
+    select.dataset.key = definition.key;
+    for (const option of definition.options) {
+      const item = document.createElement("option");
+      item.value = String(option.value);
+      item.textContent = option.label;
+      select.append(item);
+    }
+    select.value = String(value);
+    if (error) select.classList.add("invalid");
+    select.addEventListener("change", () => {
+      dispatch({ type: "setParam", ref: device.ref, field: definition.key, value: Number(select.value) });
+    });
+    control.append(select);
+    row.append(control);
+  } else {
+    const control = document.createElement("div");
+    control.className = "control";
+    const input = document.createElement("input");
+    input.type = "number";
+    input.dataset.key = definition.key;
+    input.step = definition.integer ? "1" : "any";
+    if (definition.min !== undefined) input.min = String(definition.min);
+    if (definition.max !== undefined) input.max = String(definition.max);
+    if (definition.minExclusive !== undefined) input.min = String(definition.minExclusive);
+    input.value = error && error.raw !== undefined ? String(error.raw) : String(value);
+    if (error) input.classList.add("invalid");
+    input.addEventListener("change", () => {
+      dispatch({ type: "setParam", ref: device.ref, field: definition.key, value: input.value });
+    });
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") input.blur();
+    });
+    control.append(input);
+    if (definition.unit) {
+      const unit = document.createElement("span");
+      unit.className = "unit";
+      unit.textContent = definition.unit;
+      control.append(unit);
+    }
+    row.append(control);
+  }
+
+  if (error) {
+    const message = document.createElement("div");
+    message.className = "field-error";
+    message.textContent = error.message;
+    row.append(message);
+  } else if (definition.suggested) {
+    const hint = document.createElement("div");
+    hint.className = "field-hint";
+    hint.textContent = `建议 ${definition.suggested[0]}…${definition.suggested[1]}${definition.unit ? ` ${definition.unit}` : ""}`;
+    row.append(hint);
+  }
+  return row;
+}
+
+function contactSummary(device) {
+  const bits = stateBitsFor(device.kind, device.aux);
+  if (bits.length === 0) return "无可变触点";
+  const selectedBits = device.state_bits ?? 0;
+  let filtered = bits;
+  if (device.kind === "SB" || device.kind === "SQ") {
+    const type = device.aux ?? 0;
+    filtered = bits.filter((bit) => (type === 1 ? bit.bit === 0 : type === 2 ? bit.bit === 1 : true));
+  }
+  return filtered.map((bit) => {
+    const closed = (selectedBits & (1 << bit.bit)) !== 0;
+    return `${bit.terminals.join("-")} ${closed ? "闭合" : "断开"}`;
+  }).join(" · ");
+}
+
+function resultForDevice(device) {
+  return (state.result?.devices ?? []).find((result) => result.id === device.id) ?? null;
+}
+
+function operationBlock(device) {
+  const wrap = document.createElement("div");
+  const title = document.createElement("div");
+  title.className = "prop-title";
+  title.textContent = "操作";
+  wrap.append(title);
+
+  if (device.kind === "SB" || device.kind === "SQ") {
+    const row = document.createElement("div");
+    row.className = "op-row";
+    const press = document.createElement("button");
+    press.type = "button";
+    press.textContent = "按住（动作中）";
+    press.title = "鼠标按下动作、抬起复位；在画布外松开或窗口失焦也会复位";
+    press.addEventListener("pointerdown", (event) => {
+      event.preventDefault();
+      holdDevice(device.ref);
+    });
+    const reset = document.createElement("button");
+    reset.type = "button";
+    reset.textContent = "复位";
+    reset.addEventListener("click", () => dispatch({ type: "operate", ref: device.ref, action: "release" }));
+    row.append(press, reset);
+    wrap.append(row);
+    const note = document.createElement("div");
+    note.className = "op-note";
+    note.textContent = "瞬动器件：按下时常开闭合 / 常闭断开，抬起复位（§5.4）。";
+    wrap.append(note);
+  } else if (device.kind === "QS") {
+    const row = document.createElement("div");
+    row.className = "op-row";
+    const toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.textContent = "切换通断（保持）";
+    toggle.addEventListener("click", () => dispatch({ type: "operate", ref: device.ref, action: "toggle" }));
+    row.append(toggle);
+    wrap.append(row);
+    const note = document.createElement("div");
+    note.className = "op-note";
+    note.textContent = "保持型：点一下翻转并保持，物理上等价于旋钮 / 刀开关。";
+    wrap.append(note);
+  } else if (device.kind === "KS") {
+    const row = document.createElement("div");
+    row.className = "rpm-row";
+    const slider = document.createElement("input");
+    slider.type = "range";
+    slider.dataset.key = "rpm";
+    slider.min = "0";
+    slider.max = String(Math.max(2000, device.rpm ?? 0));
+    slider.step = "10";
+    slider.value = String(Math.max(0, Math.min(Number(slider.max), device.rpm ?? 0)));
+    const live = document.createElement("span");
+    live.className = "rpm-live";
+    live.textContent = `${device.rpm ?? 0} rpm`;
+    slider.addEventListener("input", () => {
+      live.textContent = `${slider.value} rpm`;
+    });
+    slider.addEventListener("change", () => {
+      dispatch({ type: "operate", ref: device.ref, action: "setRpm", value: Number(slider.value) });
+    });
+    row.append(slider, live);
+    wrap.append(row);
+
+    const numberRow = document.createElement("div");
+    numberRow.className = "op-row";
+    const number = document.createElement("input");
+    number.type = "number";
+    number.dataset.key = "rpm";
+    number.min = "0";
+    number.max = "65535";
+    number.step = "10";
+    const rpmError = paramErrorFor(device, "rpm");
+    number.value = rpmError && rpmError.raw !== undefined ? String(rpmError.raw) : String(device.rpm ?? 0);
+    if (rpmError) number.classList.add("invalid");
+    number.addEventListener("change", () => {
+      dispatch({ type: "operate", ref: device.ref, action: "setRpm", value: number.value });
+    });
+    const unit = document.createElement("span");
+    unit.className = "unit";
+    unit.textContent = "rpm";
+    numberRow.append(number, unit);
+    wrap.append(numberRow);
+    if (rpmError) {
+      const message = document.createElement("div");
+      message.className = "field-error";
+      message.textContent = rpmError.message;
+      wrap.append(message);
+    }
+
+    const note = document.createElement("div");
+    note.className = "op-note";
+    note.textContent = "rpm 由应用给，不建惯性模型（D-20261104-05）；触点仍由内核判定。";
+    wrap.append(note);
+  } else if (device.kind === "KT") {
+    const note = document.createElement("div");
+    note.className = "op-note";
+    note.textContent = "整定延时在上方可编辑；elapsed_ms 由应用侧时钟推进，到点状态由内核判定。";
+    wrap.append(note);
+  } else if (device.kind === "FR") {
+    const note = document.createElement("div");
+    note.className = "op-note";
+    note.textContent = "整定电流在上方可编辑；elapsed_ms 由应用侧时钟按上一轮过流告警推进，跳闸由内核判定。";
+    wrap.append(note);
+  } else {
+    const note = document.createElement("div");
+    note.className = "op-note";
+    note.textContent = "该器件不可人工操作；电气状态只来自内核（docs/domain-model.md §5）。";
+    wrap.append(note);
+  }
+  return wrap;
+}
+
+function statusBlock(device) {
+  const wrap = document.createElement("div");
+  const title = document.createElement("div");
+  title.className = "prop-title";
+  title.textContent = "当前状态";
+  wrap.append(title);
+
+  const result = resultForDevice(device);
+  const line = document.createElement("div");
+  line.className = "status-line";
+
+  const contact = document.createElement("div");
+  contact.append("触点：");
+  const contactValue = document.createElement("b");
+  contactValue.textContent = contactSummary(device);
+  contact.append(contactValue);
+  line.append(contact);
+
+  const addLine = (text) => {
+    const row = document.createElement("div");
+    row.textContent = text;
+    line.append(row);
+  };
+  if (result) addLine(`线圈 ${formatCurrent(result.coil_i_rms)}`);
+  if (device.kind === "KT") {
+    const delay = device.params?.[5] ?? 0;
+    const delayText = delay > 0 ? `${delay} ms` : "0 ms（内核按缺省处理）";
+    addLine(`elapsed ${device.elapsed_ms ?? 0} / 整定 ${delayText}`);
+  }
+  if (device.kind === "FR") {
+    const setting = device.params?.[1] ?? 0;
+    addLine(`elapsed ${device.elapsed_ms ?? 0} ms / 整定 ${formatWithUnit(setting, "A")}`);
+  }
+  if (device.kind === "KS") addLine(`rpm ${device.rpm ?? 0}`);
+  wrap.append(line);
+  return wrap;
+}
+
+function readonlyBlock(device) {
+  const items = readonlyFor(device.kind);
+  if (items.length === 0) return null;
+  const wrap = document.createElement("div");
+  const title = document.createElement("div");
+  title.className = "prop-title";
+  title.textContent = "只读常量（灰显，来源见右）";
+  wrap.append(title);
+  for (const item of items) {
+    const row = document.createElement("div");
+    row.className = "ro-item";
+    const label = document.createElement("span");
+    label.textContent = `${item.label}：${formatWithUnit(device.params?.[item.index], item.unit)}`;
+    const source = document.createElement("span");
+    source.className = "source";
+    source.textContent = item.source;
+    row.append(label, source);
+    wrap.append(row);
+  }
+  const note = document.createElement("p");
+  note.className = "ro-note";
+  note.textContent = "全局常量（开路漏电电阻、开路 / 过流阈值、收敛容差等）由内核 core::consts 掌管，见 docs/solver.md §5；页面不复制数值。";
+  wrap.append(note);
+  return wrap;
+}
+
+function updateProperty(device) {
+  const active = document.activeElement;
+  const editing = active
+    && propertyPanel.contains(active)
+    && (active.tagName === "INPUT" || active.tagName === "SELECT");
+  if (editing && !forceProperty) return;
+  forceProperty = false;
+
+  if (!device) {
+    propertyPanel.textContent = "未选中器件";
+    return;
+  }
+
+  const nodes = [];
+  const head = document.createElement("div");
+  head.className = "prop-head";
+  head.textContent = `${device.ref} · ${CATALOG[device.kind]?.label ?? device.kind}`;
+  nodes.push(head);
+
+  const params = paramsFor(device.kind);
+  if (params.length > 0) {
+    const title = document.createElement("div");
+    title.className = "prop-title";
+    title.textContent = "可编辑参数";
+    nodes.push(title);
+    for (const definition of params) nodes.push(buildField(device, definition));
+  } else if (device.kind !== "KS") {
+    const note = document.createElement("div");
+    note.className = "op-note";
+    note.textContent = "该器件没有可编辑参数（§7.1 唯一子集）。";
+    nodes.push(note);
+  }
+
+  nodes.push(operationBlock(device));
+  nodes.push(statusBlock(device));
+  const readonly = readonlyBlock(device);
+  if (readonly) nodes.push(readonly);
+  propertyPanel.replaceChildren(...nodes);
+}
+
+// ── 接点表（§6.2） ──────────────────────────────────────────────────────────
+function contactBitMap(device) {
+  const map = new Map();
+  for (const bit of stateBitsFor(device.kind, device.aux)) {
+    for (const name of bit.terminals) map.set(name, bit.bit);
+  }
+  return map;
+}
+
+function updateTerminalTable() {
+  const byId = new Map((state.result?.terminals ?? []).map((terminal) => [terminal.id, terminal]));
+  const rows = [];
+  let count = 0;
+
+  for (const device of state.devices) {
+    const terminals = terminalsFor(device.kind, device.aux);
+    count += terminals.length;
+    const group = document.createElement("tr");
+    group.className = "term-group";
+    const groupCell = document.createElement("td");
+    groupCell.colSpan = 6;
+    groupCell.textContent = `${device.ref} · ${CATALOG[device.kind]?.label ?? device.kind}（${terminals.length} 接点）`;
+    group.append(groupCell);
+    rows.push(group);
+
+    const bitMap = contactBitMap(device);
+    for (const terminal of terminals) {
+      const terminalId = device.terminal_base + terminal.index;
+      const result = byId.get(terminalId);
+      const tr = document.createElement("tr");
+      tr.className = "term-row";
+
+      const nameCell = document.createElement("td");
+      nameCell.textContent = terminal.name;
+      tr.append(nameCell);
+
+      const voltageCell = document.createElement("td");
+      voltageCell.className = "num";
+      voltageCell.textContent = result ? formatVoltage(result.v_rms) : "—";
+      if (result && (result.flags & 4)) voltageCell.title = "孤立分量：电压无物理定义（按约定输出 0）";
+      tr.append(voltageCell);
+
+      const currentCell = document.createElement("td");
+      currentCell.className = "num";
+      // HAS_I = bit1；无内部支路的接点（TB / PE 等）显示 —（docs/api.md §2.5）。
+      currentCell.textContent = result && (result.flags & 2) ? formatCurrent(result.i_rms) : "—";
+      tr.append(currentCell);
+
+      const nodeCell = document.createElement("td");
+      nodeCell.className = "num";
+      nodeCell.textContent = result ? String(result.node) : "—";
+      tr.append(nodeCell);
+
+      const compCell = document.createElement("td");
+      compCell.className = "num";
+      compCell.textContent = result ? `${result.comp}（${result.comp_size}）` : "—";
+      tr.append(compCell);
+
+      const bit = bitMap.get(terminal.name);
+      const stateCell = document.createElement("td");
+      if (bit === undefined) {
+        stateCell.textContent = "—";
+      } else {
+        const closed = ((device.state_bits ?? 0) & (1 << bit)) !== 0;
+        stateCell.textContent = closed ? "闭合" : "断开";
+        stateCell.className = closed ? "closed" : "open";
+      }
+      tr.append(stateCell);
+      rows.push(tr);
+    }
+  }
+
+  if (rows.length === 0) {
+    const tr = document.createElement("tr");
+    tr.className = "term-row";
+    const td = document.createElement("td");
+    td.colSpan = 6;
+    td.textContent = "（当前 0 个接点）";
+    tr.append(td);
+    rows.push(tr);
+  }
+  termBody.replaceChildren(...rows);
+  termCount.textContent = `${count} 个`;
 }
 
 function updateWires() {
@@ -496,10 +1067,23 @@ function updateWires() {
   wireCount.textContent = `${state.wires.length} 条`;
 }
 
-function updateDiags() {
-  let items = [...(state.diags ?? [])];
-  if (state.solveError && items.length === 0) {
-    items = [{ code: state.solveError.code, level: 2, message: state.solveError.message }];
+// ── 诊断栏（§6.4） ──────────────────────────────────────────────────────────
+function collectDiags() {
+  const items = [...(state.diags ?? [])];
+  if (state.solveError) {
+    const code = state.solveError.code;
+    const duplicate = code !== null && code !== undefined
+      && items.some((item) => item.code === code);
+    if (!duplicate) {
+      items.push({ code, level: 2, message: state.solveError.message });
+    }
+  }
+  if (state.paramError) {
+    items.push({
+      code: null,
+      level: 2,
+      message: `参数错误：${state.paramError.ref} ${state.paramError.message}`,
+    });
   }
   if (state.notice) {
     items.push({
@@ -508,23 +1092,39 @@ function updateDiags() {
       message: state.notice,
     });
   }
+  if (actionError) {
+    items.push({ code: null, level: 2, message: `操作失败：${actionError}` });
+  }
+  return sortDiags(items);
+}
+
+function diagSpan(text, level) {
+  const span = document.createElement("span");
+  span.className = `diag-item ${diagLevelClass(level)}`;
+  span.textContent = text;
+  return span;
+}
+
+function updateDiags() {
   if (bootError) {
     diagbar.className = "error";
-    diagTextEl.textContent = "未就绪：wasm 加载失败";
+    diagbar.replaceChildren(diagSpan("未就绪：wasm 加载失败", 2));
     return;
   }
+  const items = collectDiags();
   if (items.length === 0) {
     diagbar.className = "ok";
-    diagTextEl.textContent = "正常";
+    diagbar.replaceChildren(diagSpan("正常", 0));
     return;
   }
-  items.sort((a, b) => (b.level ?? 0) - (a.level ?? 0));
+
   const worst = items[0]?.level ?? 0;
-  diagbar.className = worst >= 2 ? "error" : worst === 1 ? "warn" : "ok";
-  diagTextEl.textContent = items.map((item) => {
+  diagbar.className = diagLevelClass(worst);
+  diagbar.replaceChildren(...items.map((item) => {
+    const level = item.level ?? 0;
     const text = item.message ?? diagText(item.code);
-    return `${diagLevelText(item.level)}：${text}`;
-  }).join("　");
+    return diagSpan(`${diagLevelText(level)}：${text}`, level);
+  }));
 }
 
 function render() {
@@ -532,17 +1132,69 @@ function render() {
   updateStatus();
   updateSampleNote();
   updateSelected();
+  updateTerminalTable();
   updateWires();
   updateDiags();
   updateBanner();
 }
+
+// ── 应用侧时钟：10 ms 固定步长累加器（§5.4 / integration.md §2） ────────────
+let clockRunning = false;
+let clockLast = null;
+let clockAcc = 0;
+
+function startClock() {
+  if (clockRunning) return;
+  clockRunning = true;
+  clockLast = null;
+  clockAcc = 0;
+}
+
+function stopClock() {
+  clockRunning = false;
+  clockLast = null;
+  clockAcc = 0;
+}
+
+function clockFrame(now) {
+  if (clockRunning) {
+    if (clockLast === null) clockLast = now;
+    const delta = Math.min(Math.max(0, now - clockLast), CLOCK_MAX_CATCHUP_MS);
+    clockLast = now;
+    clockAcc += delta;
+    while (clockAcc >= CLOCK_DT_MS) {
+      clockAcc -= CLOCK_DT_MS;
+      const before = state;
+      dispatch({ type: "tick", dt_ms: CLOCK_DT_MS });
+      // 没有 KT / FR 累积量变化：时钟无事可做，停到下一次提交型操作。
+      if (state === before) break;
+    }
+  }
+  requestAnimationFrame(clockFrame);
+}
+
+document.addEventListener("visibilitychange", () => {
+  // 标签页隐藏时 rAF 会停；恢复时不要用巨大的帧间隔补算（上限 200 ms）。
+  clockLast = null;
+  clockAcc = 0;
+});
 
 function dispatch(event) {
   const wiresBefore = state.wires.length;
   try {
     actionError = null;
     const next = reducer(state, event);
+    if (event.type === "tick" && next === state) {
+      stopClock();
+      return;
+    }
+    forceProperty = event.type !== "tick";
     state = next.needsSolve ? solveState(next, pcx) : next;
+    if (event.type === "loadSample" || event.type === "reset" || event.type === "clear") {
+      stopClock();
+    } else if (next.needsSolve && CLOCK_START_TYPES.has(event.type)) {
+      startClock();
+    }
     if ((event.type === "addWire" || event.type === "completeWire")
       && state.wires.length === wiresBefore + 1) {
       flashWireIndex = state.wires.length - 1;
@@ -555,6 +1207,7 @@ function dispatch(event) {
     }
   } catch (error) {
     actionError = error?.message ?? String(error);
+    if (event.type === "tick") stopClock();
     console.error(error);
   }
   render();
@@ -613,6 +1266,20 @@ async function boot() {
     console.error(error);
   }
   render();
+  requestAnimationFrame(clockFrame);
+}
+
+// ── 属性面板 / 画布上的“按住”操作 ──────────────────────────────────────────
+function holdDevice(ref) {
+  if (holdRef && holdRef !== ref) releaseHeld();
+  holdRef = ref;
+  dispatch({ type: "operate", ref, action: "press" });
+}
+
+function releaseHeld() {
+  const ref = holdRef;
+  holdRef = null;
+  if (ref) dispatch({ type: "operate", ref, action: "release" });
 }
 
 function deleteSelected() {
@@ -625,6 +1292,9 @@ function deleteSelected() {
 
 deleteBtn.addEventListener("click", deleteSelected);
 sampleSelect.addEventListener("change", () => chooseSample(sampleSelect.value));
+strictToggle.addEventListener("change", () => {
+  dispatch({ type: "setStrict", value: strictToggle.checked });
+});
 clearWiresBtn.addEventListener("click", () => {
   if (state.wires.length === 0) return;
   if (!confirm(`清空全部 ${state.wires.length} 条导线？之后可以逐条重接。`)) return;
@@ -632,7 +1302,13 @@ clearWiresBtn.addEventListener("click", () => {
 });
 resetBtn.addEventListener("click", () => dispatch({ type: "reset" }));
 
+window.addEventListener("pointerup", releaseHeld);
+window.addEventListener("mouseup", releaseHeld);
+window.addEventListener("blur", releaseHeld);
+
 window.addEventListener("keydown", (event) => {
+  const tag = event.target?.tagName;
+  if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") return;
   if (event.key === "Escape") {
     dispatch({ type: "cancel" });
     return;

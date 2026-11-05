@@ -3,7 +3,7 @@
 读者：AI / 负责人
 类型：台账
 权威：已提交变更的唯一清单
-状态：2026-11-05 更新；已登记 `R-01`…`R-12`
+状态：2026-11-05 更新；已登记 `R-01`…`R-13`
 依赖：`DECISION.md`（口径来源）
 
 ## 0 写法
@@ -30,3 +30,4 @@
 | `R-10` | `ba86fe4` | `feat(web): M6.1 器件图元元数据与几何映射（纯逻辑＋node 单测） (#48)` | `bindings/web/playground/device-catalog.js`(新) `geometry.js`(新) `model.js`(新) `test/`(4) `TODO.md` `RECORD.md` |
 | `R-11` | `e8ff26c` | `feat(web): M6.2 画布编辑器骨架（白画布、放置/拖动/删除、即时求解） (#49)` | `bindings/web/playground/index.html` `canvas.js` `state.js` `solve.js` `test/` `evidence/` `TODO.md` `RECORD.md` |
 | `R-12` | `92eff99` | `feat(web): M6.3 接线交互与导线渲染（点接点连线、删线、正交走线、框内裁剪） (#50)` | `bindings/web/playground/state.js` `canvas.js` `geometry.js` `index.html` `test/` `evidence/` `docs/playground.md` `DECISION.md` `TODO.md` `RECORD.md` |
+| `R-13` | `ed7d17b` | `feat(web): M6.4 C1…C10 十样例与切换（layout sidecar ＋ 读 fixtures） (#51)` | `bindings/web/playground/samples/C1…C10.json` `samples.js` `model.js` `state.js` `index.html` `evidence/`(13) `test/` `TODO.md` `RECORD.md` |
