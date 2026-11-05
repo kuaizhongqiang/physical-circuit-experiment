@@ -3,7 +3,7 @@
 读者：AI / 负责人
 类型：台账
 权威：已提交变更的唯一清单
-状态：2026-11-05 更新；已登记 `R-01`…`R-14`
+状态：2026-11-05 更新；已登记 `R-01`…`R-15`
 依赖：`DECISION.md`（口径来源）
 
 ## 0 写法
@@ -32,3 +32,4 @@
 | `R-12` | `92eff99` | `feat(web): M6.3 接线交互与导线渲染（点接点连线、删线、正交走线、框内裁剪） (#50)` | `bindings/web/playground/state.js` `canvas.js` `geometry.js` `index.html` `test/` `evidence/` `docs/playground.md` `DECISION.md` `TODO.md` `RECORD.md` |
 | `R-13` | `ed7d17b` | `feat(web): M6.4 C1…C10 十样例与切换（layout sidecar ＋ 读 fixtures） (#51)` | `bindings/web/playground/samples/C1…C10.json` `samples.js` `model.js` `state.js` `index.html` `evidence/`(13) `test/` `TODO.md` `RECORD.md` |
 | `R-14` | `98d553e` | `feat(web): M6.5 参数编辑与操作面板（属性表单 / 器件操作 / 诊断分级 / 接点表） (#43) (#52)` | `bindings/web/playground/index.html` `canvas.js` `device-catalog.js` `diag-text.js` `state.js` `test/` `evidence/` `docs/playground.md` `TODO.md` `RECORD.md` |
+| `R-15` | `373d953` | `test(web): M6.6 自检脚本、页面自检页与 CI（10 样例 × 28 case ＋ 20 条误接） (#44) (#53)` | `scripts/playground-check.mjs` `scripts/lib/fixture-compare.mjs` `scripts/compare.mjs` `.github/workflows/ci.yml` `bindings/web/playground/selftest.html` `evidence/` `TODO.md` `RECORD.md` |

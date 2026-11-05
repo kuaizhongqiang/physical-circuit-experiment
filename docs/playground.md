@@ -3,7 +3,7 @@
 读者：AI / 负责人
 类型：设计
 权威：M6 网页实验台的功能、结构、器件图元、样例、交互、参数、判据、部署与验收的唯一事实源
-状态：2026-11-04 首版；2026-11-05 补 §4.4 / §4.5（M6.4 样例加载与确定性排版）与 §5.1 / §5.4 / §6.2 / §7.2（M6.5 参数、操作、接点表与时钟启动条件）。实现按 M6.0…M6.8 分片，口径见 `DECISION.md` D-20261104-01…10
+状态：2026-11-04 首版；2026-11-05 补 §4.4 / §4.5（M6.4 样例加载与确定性排版）、§5.1 / §5.4 / §6.2 / §7.2（M6.5 参数、操作、接点表与时钟启动条件）、§9 运行手册与 §10.2 / §10.3（M6.7 部署与验收记录）。实现按 M6.0…M6.8 分片，口径见 `DECISION.md` D-20261104-01…10
 依赖：`demo.md` §3.4 / §4 / §6 / §8（几何、图元、数值格式、诊断文案）、`domain-model.md` §2 §4（接点表、参数）、`solver.md` §5（数值常量）、`verification.md` §2 §3 §4（容差与断言）、`api.md` §5 §7（错误码、JSON 门面）、`integration.md` §2 §4（应用侧时钟、Web 侧）
 
 ## 1 目标与两个入口
@@ -456,25 +456,43 @@ state 是纯数据：`{ mode, devices[], wires[], selected, selectedWire, pendin
 
 | 场景 | 命令 | 说明 |
 |---|---|---|
-| 本机自用 | `node scripts/serve.mjs 8080` | 行为与现在完全一致（默认监听不变） |
-| tailnet 访问 | `node scripts/serve.mjs 8080 --host 0.0.0.0` | `--host` 是 M6 新增可选参数，不传时行为不变 |
-| 常驻（tmux） | `tmux new -d -s playground 'node scripts/serve.mjs 8080 --host 0.0.0.0'` | 或 `nohup node scripts/serve.mjs 8080 --host 0.0.0.0 &` |
+| 本机自用 | `node scripts/serve.mjs 8080` | 不传 `--host` 时行为与以前完全一致：端口、输出、并发都不变 |
+| tailnet 访问 | `node scripts/serve.mjs 8080 --host 0.0.0.0` | `--host` 是 M6.7 新增的可选参数；显式绑定 IPv4 任意地址 |
 
-- 页面地址：`http://127.0.0.1:8080/bindings/web/playground/index.html`
-- 自检页：`http://127.0.0.1:8080/bindings/web/playground/selftest.html`
+- `--host` 只接受 IPv4 / IPv6 / 主机名；缺地址、非法端口、非法地址、未知 / 多余参数一律以中文「参数错误」结束，退出码 2。
+- 启动前先确认 8080 空闲：`ss -ltnp 'sport = :8080'`；被占用时先停占用进程或换端口，不要动 3080 / 3000。
+- 页面依赖 `bindings/web/pkg/pcx_circuit.wasm`；未构建时按 `AGENT.md` §4 构建并拷贝到该目录，不能 `file://` 直接打开。
 
-### 9.2 访问地址形态（tailnet 内）
+### 9.2 常驻（nohup）
 
-已实测的环境事实：本机 tailnet 名 `kuaizhongqiang01`，IP `100.87.60.42`，MagicDNS 开启（`kuaizhongqiang01.tail61fc44.ts.net`），8080 空闲。两种地址等价：
+本机未安装 tmux，所以只给 nohup 方式；在仓库根目录执行这一条（可整段复制）：
 
-- `http://100.87.60.42:8080/bindings/web/playground/index.html`
-- `http://kuaizhongqiang01.tail61fc44.ts.net:8080/bindings/web/playground/index.html`
+```bash
+cd /home/kuai/src/physical-circuit-experiment
+nohup node scripts/serve.mjs 8080 --host 0.0.0.0 > /tmp/playground-8080.log 2>&1 &
+```
 
-### 9.3 安全边界
+- 验证：`curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8080/bindings/web/playground/index.html`，期望 `200`。
+- 停止：先用 `ss -ltnp 'sport = :8080'` 找到本服务的 pid，再 `kill <pid>`；不要按 `node` 名字批量杀，以免误停 3080 / 3000 的进程。
+- 日志：`/tmp/playground-8080.log`。
 
-- **只用 tailnet 裸端口访问**；**禁止 `tailscale funnel`**（会把页面暴露到公网）。
-- **不得占用 / 暴露 3080（DSH 面板）与 3000**；本服务只用 8080。
-- 页面上不投放任何凭证 / 私有 Feishu 内容；样例数据只有 `fixtures/` 的电路网表。
+### 9.3 访问地址形态（tailnet 内）
+
+已实测的环境事实：本机 tailnet 名 `kuaizhongqiang01`，IP `100.87.60.42`，MagicDNS 开启（`kuaizhongqiang01.tail61fc44.ts.net`）。两种地址等价：
+
+| 页面 | tailnet IP | MagicDNS |
+|---|---|---|
+| 实验台 | `http://100.87.60.42:8080/bindings/web/playground/index.html` | `http://kuaizhongqiang01.tail61fc44.ts.net:8080/bindings/web/playground/index.html` |
+| 自检页 | `http://100.87.60.42:8080/bindings/web/playground/selftest.html` | `http://kuaizhongqiang01.tail61fc44.ts.net:8080/bindings/web/playground/selftest.html` |
+
+本机自用把主机名换成 `127.0.0.1` 即可；MagicDNS 解析失败时改用 IP。
+
+### 9.4 安全边界
+
+- **只用 tailnet 裸端口访问**；**禁止 `tailscale funnel`**（会把页面暴露到公网）。需要远程时用 tailnet，而不是公网隧道。
+- **不得占用 / 暴露 3080（DSH 面板）与 3000**；本服务只用 8080，启动前按 §9.1 检查端口。
+- 页面上不投放任何凭证 / 私有 Feishu 内容；样例数据只有 `fixtures/` 的电路网表，服务只读仓库内静态文件。
+- 停服务时按 §9.2 的 pid 精确停止，不改 tailscale 的 serve / funnel 配置，不整机重启。
 
 ## 10 浏览器验收表与验收记录
 
@@ -509,6 +527,107 @@ state 是纯数据：`{ mode, devices[], wires[], selected, selectedWire, pendin
 
 | 日期 | 设备 / 浏览器 | 验收人 | 结论 | 备注 |
 |---|---|---|---|---|
-| 待 M6.7 填写 | 待填（含 tailnet 另一台设备） | 负责人 | 待验收 | 验收表 D-1…D-20 逐项留痕；截图与命令输出进 M6.7 的报告与 PR |
+| 2026-11-05 | 本机 Linux（`kuaizhongqiang01`，tailnet IP `100.87.60.42`）· Chromium 153 headless（Playwright） | 智能体（本机自测） | 本机项通过：D-1、D-2、D-3、D-4、D-15、D-18；D-19 判据覆盖，页面提示待人工抽样 | 命令、真实输出与截图见 §10.3；8080 测试后已停止，未长期占用 |
+| 待负责人 | tailnet 另一台设备 | 负责人 | **待验收：D-20**（含 D-1…D-19 逐项人工确认） | 按 §9.2 常驻后从另一台设备打开 §9.3 地址，按 §10.1 逐项操作 |
 
-**记录规则**：本表由 M6.7（Tailscale 部署与浏览器验收）片回填；M6.8 收口只做定稿与索引，不改判据。未留痕的项按未通过处理。
+**记录规则**：本表由 M6.7（Tailscale 部署与浏览器验收）片回填（2026-11-05）；M6.8 收口只做定稿与索引，不改判据。未留痕的项按未通过处理。
+
+### 10.3 M6.7 本机自测记录（2026-11-05）
+
+环境：`main = 373d953`；Node.js `v24.21.0`；`tailscale ip -4` → `100.87.60.42`；MagicDNS `kuaizhongqiang01.tail61fc44.ts.net`；本机未安装 tmux；3080 / 3000 已被其它服务占用，未触碰。开始测试时 8080 已有一个旧的 `node scripts/serve.mjs 8080` 进程（主工作区），先停掉再测；本片测试结束后 8080 保持空闲。
+
+#### 10.3.1 启动与访问（交付 1 / 2）
+
+```text
+$ node scripts/serve.mjs 8080 --host 0.0.0.0
+静态服务已启动：http://localhost:8080
+监听地址：0.0.0.0:8080
+演示页：http://localhost:8080/bindings/web/demo.html
+（Ctrl+C 停止）
+
+$ ss -ltnp 'sport = :8080'
+LISTEN 0  511  0.0.0.0:8080  0.0.0.0:*  users:(("MainThread",pid=204071,fd=21))
+```
+
+访问（同一进程，`curl -s -o /dev/null -w '%{http_code} %{content_type} %{size_download} B\n' <url>`）：
+
+| URL | 结果 |
+|---|---|
+| `http://127.0.0.1:8080/bindings/web/playground/index.html` | `200 text/html; charset=utf-8 46313 B` |
+| `http://100.87.60.42:8080/bindings/web/playground/index.html` | `200 text/html; charset=utf-8 46313 B` |
+| `http://kuaizhongqiang01.tail61fc44.ts.net:8080/bindings/web/playground/index.html` | `200 text/html; charset=utf-8 46313 B` |
+| `http://100.87.60.42:8080/bindings/web/playground/selftest.html` | `200 text/html; charset=utf-8 11525 B` |
+| `http://100.87.60.42:8080/bindings/web/pkg/pcx_circuit.wasm` | `200 application/wasm 180192 B` |
+
+无参数默认行为（不传 `--host`）：
+
+```text
+$ node scripts/serve.mjs
+静态服务已启动：http://localhost:8080
+演示页：http://localhost:8080/bindings/web/demo.html
+（Ctrl+C 停止）
+
+$ ss -ltnp 'sport = :8080'
+LISTEN 0  511  *:8080  *:*  users:(("MainThread",pid=204035,fd=21))
+
+$ curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8080/bindings/web/playground/index.html
+200
+```
+
+输出三行与改动前逐字一致，仍走 `listen(PORT)` 默认监听；并发路径未改。
+
+参数校验（均为真实输出，退出码 2）：
+
+| 命令 | 输出 |
+|---|---|
+| `node scripts/serve.mjs abc` | `参数错误：非法端口 "abc"（需为 1…65535 的整数）` ＋ 用法行 |
+| `node scripts/serve.mjs 70000` | `参数错误：非法端口 "70000"（需为 1…65535 的整数）` ＋ 用法行 |
+| `node scripts/serve.mjs 8080 --host` | `参数错误：--host 需要一个地址，例如 --host 0.0.0.0` ＋ 用法行 |
+| `node scripts/serve.mjs 8080 --host bad_host` | `参数错误：非法主机地址 "bad_host"（需为 IPv4 / IPv6 / 主机名）` ＋ 用法行 |
+| `node scripts/serve.mjs 8080 --host 999.1.1.1` | `参数错误：非法主机地址 "999.1.1.1"（需为 IPv4 / IPv6 / 主机名）` ＋ 用法行 |
+| `node scripts/serve.mjs --bogus` | `参数错误：未知参数 "--bogus"` ＋ 用法行 |
+| `node scripts/serve.mjs 8080 9090` | `参数错误：多余的参数 "9090"` ＋ 用法行 |
+
+#### 10.3.2 浏览器验收（交付 3）
+
+本机用 Chromium 153 headless（Playwright）从 `http://100.87.60.42:8080/...` 打开页面；浏览器控制台无未捕获异常，以下数值为页面接点表实际读数。
+
+| 项 | 本机结论 | 证据 |
+|---|---|---|
+| **D-1** | 通过：空网表 `器件 0 ｜ 接点 0 ｜ 导线 0 ｜ 诊断 0`，诊断栏「正常」，无红条、无控制台异常 | [m67-empty-canvas-tailnet.jpg](../bindings/web/playground/evidence/m67-empty-canvas-tailnet.jpg) |
+| **D-2** | 通过：C3 状态 `器件 15 ｜ 接点 65 ｜ 导线 30`，无 error（仅 1 条 info）；selftest C3「初始」case 通过（M1 三相 0 A、KM1 释放） | [m67-sample-C3-tailnet.jpg](../bindings/web/playground/evidence/m67-sample-C3-tailnet.jpg) |
+| **D-3** | 通过（本机浏览器操作，容差内）：按住 SB2 时 M1 三相 `5.00 A`、KM1 线圈 `26.35 mA`；松开后仍为 `5.00 A`，SB2 触点 3-4 已断开（自锁成立）。fixture 期望 `5.0156 A`，差 0.3%，在 `verification.md` §2 的 1% 容差内 | [m67-c3-press-sb2-tailnet.jpg](../bindings/web/playground/evidence/m67-c3-press-sb2-tailnet.jpg)、[m67-c3-selflock-tailnet.jpg](../bindings/web/playground/evidence/m67-c3-selflock-tailnet.jpg) |
+| **D-4** | 通过（本机浏览器操作，容差内）：C3 自锁后按住 SB3，M1 三相 `0.22 µA`、KM1 线圈 `0.29 µA`；低于 1 mA 绝对容差，按 0 A 处理 | 接点表实读（无单独截图） |
+| **D-5** | 待负责人按 §10.1 操作（删 `KM1.13–SB3.2` 后重复 D-3） | — |
+| **D-6** | 待负责人按 §10.1 操作（宽松 / 严格缺 `PE` 的页面文案）；严格模式判据由 selftest C3「删 N→PE」case 覆盖 | selftest 表 C3 |
+| **D-7** | 待负责人按 §10.1 操作（页面红字短路）；短路判据由 selftest C3「L1–L2 直连」case 覆盖 | selftest 表 C3 |
+| **D-8** | 待负责人按 §10.1 操作（清空 30 条导线） | — |
+| **D-9** | 待负责人按 §10.1 操作（逐条重接 30 条） | — |
+| **D-10** | 待负责人按 §10.1 操作（悬停 65 个接点） | — |
+| **D-11** | 待负责人按 §10.1 操作（15 类器件各放置 1 台） | — |
+| **D-12** | 待负责人按 §10.1 操作（拖动器件后松手） | — |
+| **D-13** | 待负责人按 §10.1 操作（删除带线器件） | — |
+| **D-14** | 待负责人按 §10.1 操作（星形回路） | — |
+| **D-15** | 通过：selftest `通过 28 / 28`，0 红行，与 `node scripts/playground-check.mjs` 的 `28/28` 结论一致 | [m67-selftest-tailnet.jpg](../bindings/web/playground/evidence/m67-selftest-tailnet.jpg) |
+| **D-16** | 待负责人按 §10.1 操作（380 → 220 V）；M6.5 片有历史截图 `c3-380to220-m1-current.jpg`，本片未重测 | — |
+| **D-17** | 待负责人按 §10.1 操作（KT 3000 → 0 ms 的应用时钟）；数值判据由 selftest C6「2990 / 3000 ms」两 case 覆盖 | selftest 表 C6 |
+| **D-18** | 通过（本机浏览器逐个加载）：C1…C10 均无红条、控制台无异常；初始态判据另由 `playground-check` 的 `28/28` 覆盖 | 下方实读状态 |
+| **D-19** | 判据覆盖：`node scripts/playground-check.mjs` 的 `M-01…M-20` 全过；页面对自连 / 重复线 / 未知接点的中文提示待负责人在 D-20 时抽样确认 | 命令输出 |
+| **D-20** | **待负责人人工确认**：本片未从另一台 tailnet 设备代验，不伪造另一台设备的结果 | — |
+
+D-18 逐样例实读状态（均 `bannerHidden=true`、控制台错误 0）：
+
+```text
+C1   器件 5   ｜ 接点 27 ｜ 导线 12 ｜ 诊断 1（info）
+C2   器件 7   ｜ 接点 41 ｜ 导线 19 ｜ 诊断 1（info）
+C3   器件 15 ｜ 接点 65 ｜ 导线 30 ｜ 诊断 1（info）
+C4   器件 8   ｜ 接点 47 ｜ 导线 24 ｜ 诊断 1（info）
+C5   器件 7   ｜ 接点 53 ｜ 导线 28 ｜ 诊断 1（info）
+C6   器件 5   ｜ 接点 29 ｜ 导线 14 ｜ 诊断 1（info）
+C7   器件 6   ｜ 接点 41 ｜ 导线 19 ｜ 诊断 1（info）
+C8   器件 5   ｜ 接点 25 ｜ 导线 13 ｜ 诊断 1（info）
+C9   器件 6   ｜ 接点 39 ｜ 导线 18 ｜ 诊断 1（info）
+C10  器件 7   ｜ 接点 45 ｜ 导线 22 ｜ 诊断 1（info）
+```
+
+D-15 / D-19 的命令输出：`node scripts/playground-check.mjs` → 结构 `10/10`、几何 `15/15` 类（`32/32` 配置）、复算 `28/28`、误接 `20/20`；`node --test bindings/web/playground/test/` → `122` 项全过。
